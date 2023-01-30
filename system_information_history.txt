@@ -1,0 +1,4 @@
+30.01.2023.
+First commit.
+Device manager clone (System view) v0.10.00.
+Builds for x64 and ia32.
