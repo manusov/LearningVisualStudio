@@ -19,9 +19,10 @@ This settings both for x86 and x64, both for Debug and Release:
   3) Additional \ Char set \ Multi-byte encoding.
   4) Linker \ System \ Windows.
   5) Linker \ Input \ Additional dependences \ Add library: setupapi.lib.
+  6) Linker \ Input \ Additional dependences \ Add library: Comctl32.lib.
 
 This settings both for x86 and x64, for Release only:
-  6) C++ \ Code build \ Runtime library \ Multi-thread (MT).
+  7) C++ \ Code build \ Runtime library \ Multi-thread (MT).
 
 Special thanks to:
 
@@ -48,31 +49,8 @@ http://www.sibcode.com/junior-icon-editor/
 #include "TreeController.h"
 #include "TreeControllerExt.h"
 #include "TreeControllerSys.h"
-
-// Select emulated or system scan mode: uncomment this for debug.
-// Emulated mode means use constant emulated system configuration info
-// WITHOUT get system information.
-// #define _EMULATED_MODE
-
-// Select extended emulated mode, with improved nodes nesting level.
-// Enable both _EMULATED_MODE, _EXT_EMULATED_MODE for extended mode.
-// #define _EXT_EMULATION
-
-#if _WIN64
-#ifdef _EMULATED_MODE
-const char* BUILD_NAME = "Modeling Device Manager (emulated data). Engineering sample v0.10.00. x64.";
-#else
-const char* BUILD_NAME = "System view. v0.10.00. x64.";
-#endif
-#elif _WIN32
-#ifdef _EMULATED_MODE
-const char* BUILD_NAME = "Modeling Device Manager (emulated data). Engineering sample v0.10.00. ia32.";
-#else
-const char* BUILD_NAME = "System view. v0.10.00. ia32.";
-#endif
-#else
-const char* BUILD_NAME = "UNKNOWN BUILD MODE.";
-#endif
+#include "resource.h"
+#include "Main.h"
 
 TreeModel* pModel = NULL;
 TreeView* pView = NULL;
@@ -114,15 +92,20 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 			pModel->SetTree(tree);
 			if (tree)
 			{
+				// Write build name string.
+				CHAR buildName[BUILD_NAME_MAX];
+				_snprintf_s(buildName, BUILD_NAME_MAX, _TRUNCATE, "%s %s%s %s %s",
+					ABOUT_TEXT_1, ABOUT_TEXT_2_1, ABOUT_TEXT_2_2, ABOUT_TEXT_2_3, ABOUT_TEXT_2_4);
 				// Show application window = Device Manager tree.
-				MSG msg;
-				KWnd mainWnd((LPCTSTR)BUILD_NAME, hInstance, nCmdShow,
+				KWnd mainWnd((LPCSTR)buildName, hInstance, nCmdShow,
 					TransitWndProc,
-					NULL,
+					MAKEINTRESOURCE(IDR_MAIN_MENU),
 					590, 280, 800, 640,
 					CS_HREDRAW | CS_VREDRAW,
 					WS_OVERLAPPEDWINDOW | WS_HSCROLL | WS_VSCROLL,
 					NULL);
+				// Handling user events
+				MSG msg;
 				while (GetMessage(&msg, NULL, 0, 0))
 				{
 					TranslateMessage(&msg);

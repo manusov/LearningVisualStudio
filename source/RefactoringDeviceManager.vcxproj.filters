@@ -39,6 +39,9 @@
     <ClCompile Include="TreeControllerExt.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="DialogueAbout.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TreeModel.h">
@@ -63,6 +66,12 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="TreeControllerExt.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogueAbout.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Main.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
@@ -184,6 +193,9 @@
       <Filter>Файлы ресурсов</Filter>
     </Image>
     <Image Include="Icons_System\video_adapters.ico">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="Icons_App\books.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
   </ItemGroup>

@@ -81,7 +81,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>copy Icons_App\app32.ico Icons_App\app.ico</Command>
@@ -102,7 +102,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>copy Icons_App\app32.ico Icons_App\app.ico</Command>
@@ -118,7 +118,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>copy Icons_App\app64.ico Icons_App\app.ico</Command>
@@ -139,13 +139,14 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>copy Icons_App\app64.ico Icons_App\app.ico</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DialogueAbout.cpp" />
     <ClCompile Include="Enumerator.cpp" />
     <ClCompile Include="KWnd.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -156,8 +157,10 @@
     <ClCompile Include="TreeView.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DialogueAbout.h" />
     <ClInclude Include="Enumerator.h" />
     <ClInclude Include="KWnd.h" />
+    <ClInclude Include="Main.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="TreeController.h" />
     <ClInclude Include="TreeControllerExt.h" />
@@ -170,6 +173,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="Icons_App\app.ico" />
+    <Image Include="Icons_App\books.ico" />
     <Image Include="Icons_Service\closed.ico" />
     <Image Include="Icons_Service\closed_light.ico" />
     <Image Include="Icons_Service\opened.ico" />

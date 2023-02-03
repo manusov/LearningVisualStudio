@@ -53,7 +53,10 @@ Note TreeView.cpp use offset change for scroll, not redraw!
 
 #include <windows.h>
 #include <windowsx.h>
+#include <CommCtrl.h>
 #include "TreeModel.h"
+#include "DialogueAbout.h"
+#include "resource.h"
 
 #define X_BASE_TREE 10
 #define Y_BASE_TREE 10
@@ -63,6 +66,8 @@ Note TreeView.cpp use offset change for scroll, not redraw!
 #define Y_ICON_STEP 18
 #define BACKGROUND_BRUSH  RGB(213, 240, 213)
 #define SELECTED_BRUSH    RGB(245, 245, 120)
+
+#define ID_STATUS_BAR 400
 
 class TreeView
 {

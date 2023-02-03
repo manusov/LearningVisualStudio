@@ -126,6 +126,75 @@ IDI_USB_STORAGE         ICON                    "Icons_System\\usb_storage.ico"
 
 IDI_VIDEO_ADAPTERS      ICON                    "Icons_System\\video_adapters.ico"
 
+IDI_BOOKS               ICON                    "Icons_App\\books.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MAIN_MENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Save report ...",            IDM_FILE_SAVEREPORT, INACTIVE
+        MENUITEM "S&ave image ...",             IDM_FILE_SAVEIMAGE, INACTIVE
+        MENUITEM SEPARATOR
+        MENUITEM "L&oad report ...",            IDM_FILE_LOADREPORT, INACTIVE
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       IDM_FILE_EXIT
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "About ...",                   IDM_HELP_ABOUT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUT DIALOGEX 15, 15, 183, 143
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",ID_ABOUT_OK,65,122,50,14
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 176
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 136
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_ABOUT AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
 #endif    // Русский (Россия) resources
 /////////////////////////////////////////////////////////////////////////////
 

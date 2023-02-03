@@ -41,14 +41,32 @@
 #define IDI_USB_STORAGE                 137
 #define IDI_VIDEO_ADAPTER               138
 #define IDI_VIDEO_ADAPTERS              138
+#define IDR_MAIN_MENU                   139
+#define IDD_ABOUT                       140
+#define IDI_ICON2                       142
+#define IDI_BOOKS                       142
+#define ID_ABOUT_OK                     1001
+#define ID_HELP_ABOUT                   40001
+#define ID_FILE_SAVEREPORT              40002
+#define ID_FILE_SAVEIMAGE               40003
+#define ID_FILE_SEPARATOR               40004
+#define ID_FILE_SEPARATOR40005          40005
+#define ID_FILE_LOADREPORT              40006
+#define ID_FILE_SEPARATOR40007          40007
+#define ID_FILE_EXIT                    40008
+#define IDM_HELP_ABOUT                  40009
+#define IDM_FILE_SAVEREPORT             40010
+#define IDM_FILE_SAVEIMAGE              40011
+#define IDM_FILE_LOADREPORT             40012
+#define IDM_FILE_EXIT                   40013
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        139
-#define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1001
+#define _APS_NEXT_RESOURCE_VALUE        143
+#define _APS_NEXT_COMMAND_VALUE         40014
+#define _APS_NEXT_CONTROL_VALUE         1002
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

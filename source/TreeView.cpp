@@ -93,6 +93,8 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	// This variables are required for restore context
 	static HGDIOBJ backupBmp;
 	static HBRUSH backupBrush;
+	// Application status bar handle.
+	// static HWND hWndStatusBar;
 	// Window callback procedure entry point.
 	switch (uMsg)
 	{
@@ -126,6 +128,8 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		backupBmp = SelectObject(hdcScreenCompat, hbmpCompat);
 		// Select the brush for the compatible DC.
 		backupBrush = (HBRUSH)SelectObject(hdcScreenCompat, bgndBrush);
+		// Create application status bar.
+		// hWndStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "Ready...", hWnd, ID_STATUS_BAR);
 		// Initialize the flags. 
 		fBlt = FALSE;
 		fScroll = FALSE;
@@ -181,6 +185,8 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		int dy = 0;
 		HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 			xCurrentScroll, yCurrentScroll, dy);
+		// Adjust status bar position and size when main window size changed.
+		// SendMessage(hWndStatusBar, WM_SIZE, wParam, lParam);
 	}
 	break;
 
@@ -273,7 +279,6 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		int addY = 0;
 		int selector = LOWORD(wParam);
 		int value = HIWORD(wParam);
-
 		switch (selector)
 		{
 		case SB_PAGEUP:
@@ -437,6 +442,25 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	}
 	break;
 
+	case WM_COMMAND:
+	{
+		switch (LOWORD(wParam))
+		{
+		case IDM_HELP_ABOUT:
+			setTreeModel(pModel);
+			DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_ABOUT), hWnd, (DLGPROC)DlgProc, 0);
+			break;
+
+		case IDM_FILE_EXIT:
+			SendMessage(hWnd, WM_DESTROY, 0, 0);
+			break;
+		default:
+			break;
+		}
+
+	}
+	break;
+
 	case WM_DESTROY:
 	{
 		if (backupBrush) SelectObject(hdcScreenCompat, backupBrush);
@@ -597,7 +621,7 @@ void TreeView::HelperAdjustScrollX(HWND hWnd, SCROLLINFO& scrollInfo, RECT& tree
 	xMaxScroll = max(tempSize - xNewSize, 0);                    // max(bmp.bmWidth - xNewSize, 0);
 	xCurrentScroll = min(xCurrentScroll, xMaxScroll);
 	scrollInfo.cbSize = sizeof(SCROLLINFO);
-	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS; // | SIF_DISABLENOSCROLL;
 	scrollInfo.nMin = xMinScroll;
 	scrollInfo.nMax = tempSize;                                  // bmp.bmWidth;
 	scrollInfo.nPage = xNewSize;
@@ -615,7 +639,7 @@ void TreeView::HelperAdjustScrollY(HWND hWnd, SCROLLINFO& scrollInfo, RECT& tree
 	yMaxScroll = max(tempSize - yNewSize, 0);                    // max(bmp.bmHeight - yNewSize, 0);
 	yCurrentScroll = min(yCurrentScroll, yMaxScroll);
 	scrollInfo.cbSize = sizeof(SCROLLINFO);
-	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS; // | SIF_DISABLENOSCROLL;
 	scrollInfo.nMin = yMinScroll;
 	scrollInfo.nMax = tempSize;                                  // bmp.bmHeight;
 	scrollInfo.nPage = yNewSize;
@@ -639,7 +663,7 @@ void TreeView::HelperMakeScrollX(HWND hWnd, SCROLLINFO& scrollInfo,
 		xCurrentScroll = xNewPos;
 		// Update the scroll bar position.
 		scrollInfo.cbSize = sizeof(SCROLLINFO);
-		scrollInfo.fMask = SIF_POS;
+		scrollInfo.fMask = SIF_POS; // | SIF_DISABLENOSCROLL; // SIF_POS;
 		scrollInfo.nPos = xCurrentScroll;
 		SetScrollInfo(hWnd, SB_HORZ, &scrollInfo, TRUE);
 		// Request for all window repaint
@@ -663,7 +687,7 @@ void TreeView::HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
 		yCurrentScroll = yNewPos;
 		// Update the scroll bar position.
 		scrollInfo.cbSize = sizeof(SCROLLINFO);
-		scrollInfo.fMask = SIF_POS;
+		scrollInfo.fMask = SIF_POS; // | SIF_DISABLENOSCROLL; // SIF_POS;
 		scrollInfo.nPos = yCurrentScroll;
 		SetScrollInfo(hWnd, SB_VERT, &scrollInfo, TRUE);
 		// Request for all window repaint
