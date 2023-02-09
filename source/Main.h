@@ -12,10 +12,14 @@ Main global definitions and build settings.
 // #define _EMULATED_MODE
 
 // Select extended emulated mode, with improved nodes nesting level.
-// Enable both _EMULATED_MODE, _EXT_EMULATED_MODE for extended mode.
+// Enable both _EMULATED_MODE, _EXT_EMULATION for extended mode.
 // #define _EXT_EMULATION
 
-#define BUILD_VERSION  "0.10.3.0"
+// Enable Tool Bar and Status Bar GUI elements, for debug it.
+// Under construction.
+   #define _NEW_GUI
+
+#define BUILD_VERSION  "0.10.6.0"
 #define BUILD_NAME_MAX 160
 
 #if _WIN64

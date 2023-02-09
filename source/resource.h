@@ -45,6 +45,9 @@
 #define IDD_ABOUT                       140
 #define IDI_ICON2                       142
 #define IDI_BOOKS                       142
+#define IDR_TOOLBAR1                    143
+#define IDR_TOOLBAR2                    151
+#define IDR_TOOLBAR                     151
 #define ID_ABOUT_OK                     1001
 #define ID_HELP_ABOUT                   40001
 #define ID_FILE_SAVEREPORT              40002
@@ -59,13 +62,15 @@
 #define IDM_FILE_SAVEIMAGE              40011
 #define IDM_FILE_LOADREPORT             40012
 #define IDM_FILE_EXIT                   40013
+#define ID_TB_ABOUT                     40016
+#define ID_TB_EXIT                      40017
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        143
-#define _APS_NEXT_COMMAND_VALUE         40014
+#define _APS_NEXT_RESOURCE_VALUE        153
+#define _APS_NEXT_COMMAND_VALUE         40018
 #define _APS_NEXT_CONTROL_VALUE         1002
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

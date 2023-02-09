@@ -150,11 +150,14 @@
     <ClCompile Include="Enumerator.cpp" />
     <ClCompile Include="KWnd.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="StatusBar.cpp" />
+    <ClCompile Include="ToolBar.cpp" />
     <ClCompile Include="TreeController.cpp" />
     <ClCompile Include="TreeControllerExt.cpp" />
     <ClCompile Include="TreeControllerSys.cpp" />
     <ClCompile Include="TreeModel.cpp" />
     <ClCompile Include="TreeView.cpp" />
+    <ClCompile Include="TreeViewDebug.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DialogueAbout.h" />
@@ -162,16 +165,20 @@
     <ClInclude Include="KWnd.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="StatusBar.h" />
+    <ClInclude Include="ToolBar.h" />
     <ClInclude Include="TreeController.h" />
     <ClInclude Include="TreeControllerExt.h" />
     <ClInclude Include="TreeControllerSys.h" />
     <ClInclude Include="TreeModel.h" />
     <ClInclude Include="TreeView.h" />
+    <ClInclude Include="TreeViewDebug.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="RefactoringDeviceManager.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="bitmaps_app\toolbar.bmp" />
     <Image Include="Icons_App\app.ico" />
     <Image Include="Icons_App\books.ico" />
     <Image Include="Icons_Service\closed.ico" />
@@ -185,7 +192,6 @@
     <Image Include="Icons_System\bluetooth.ico" />
     <Image Include="Icons_System\displays.ico" />
     <Image Include="Icons_System\hid.ico" />
-    <Image Include="icons_system\icon2.ico" />
     <Image Include="Icons_System\ide.ico" />
     <Image Include="Icons_System\image_processing.ico" />
     <Image Include="Icons_System\keyboards.ico" />

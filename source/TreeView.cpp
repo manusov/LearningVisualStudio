@@ -93,13 +93,18 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	// This variables are required for restore context
 	static HGDIOBJ backupBmp;
 	static HBRUSH backupBrush;
-	// Application status bar handle.
-	// static HWND hWndStatusBar;
+	// Application tool bar and status bar handles.
+	static HWND hWndToolBar;
+	static HWND hWndStatusBar;
+	// Application tool bar and status bar Y-sizes for viewer settings adjust.
+	static int toolY;
+	static int statusY;
 	// Window callback procedure entry point.
 	switch (uMsg)
 	{
 	case WM_CREATE:
 	{
+		ClearInvalidation();
 		// Fill window with background color.
 		bgndBrush = CreateSolidBrush(BACKGROUND_BRUSH);
 		SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)bgndBrush);
@@ -128,8 +133,28 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		backupBmp = SelectObject(hdcScreenCompat, hbmpCompat);
 		// Select the brush for the compatible DC.
 		backupBrush = (HBRUSH)SelectObject(hdcScreenCompat, bgndBrush);
-		// Create application status bar.
-		// hWndStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "Ready...", hWnd, ID_STATUS_BAR);
+
+#ifdef _NEW_GUI
+		// Create application tool bar and status bar.
+		hWndToolBar = InitToolBar(hWnd);
+		hWndStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, " Ready...", hWnd, ID_STATUSBAR);
+#endif
+
+		// Adjust tool bar and status bar position and size.
+		RECT r;
+		if (hWndToolBar)
+		{
+			SendMessage(hWndToolBar, TB_AUTOSIZE, 0, 0);
+			GetWindowRect(hWndToolBar, &r);
+			toolY = r.bottom - r.top;        // Note static variable toolY = 0 if tool bar not initialized.
+		}
+			
+		if (hWndStatusBar)
+		{
+			SendMessage(hWndStatusBar, WM_SIZE, wParam, lParam);
+			GetWindowRect(hWndStatusBar, &r);
+			statusY = r.bottom - r.top;      // Note static variable statusY = 0 if status bar not initialized.
+		}
 		// Initialize the flags. 
 		fBlt = FALSE;
 		fScroll = FALSE;
@@ -142,11 +167,13 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		yMinScroll = 0;
 		yCurrentScroll = 0;
 		yMaxScroll = 0;
+/*
 		// Draw device manager tree for first show window, mark show required.
 		BitBlt(hdcScreenCompat, 0, 0, bmp.bmWidth, bmp.bmHeight, NULL, 0, 0, PATCOPY);
 		int dy = 0;
 		treeDimension = HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(),
 			fTab, hdcScreenCompat, hFont, xCurrentScroll, yCurrentScroll, dy);
+*/
 		fSize = TRUE;
 		// Initialize pointer for open items by SPACE, Gray+, Gray- keys.
 		openNode = pModel->GetTree();
@@ -160,7 +187,19 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		// Open paint context.
 		BeginPaint(hWnd, &ps);
 		// Paint bufferred copy.
+/*
 		BitBlt(ps.hdc, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, hdcScreenCompat, 0, 0, SRCCOPY);
+*/
+
+        // This method requires add mouse cursor vertical position offset at mouse support operations:
+		// Offset = toolY, tool bar Y-size,
+		// and subtract tool bar and status bar vertical size at work area Y-size calculation:
+		// Subtracted Y-size = toolY + statusY
+/*
+		BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right, ps.rcPaint.bottom - toolY - statusY, hdcScreenCompat, 0, 0, SRCCOPY);
+*/		
+		BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right, ps.rcPaint.bottom, hdcScreenCompat, 0, 0, SRCCOPY);
+
 		// Close paint context.
 		EndPaint(hWnd, &ps);
 	}
@@ -168,8 +207,9 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 
 	case WM_SIZE:
 	{
+		ClearInvalidation();
 		int xNewSize = GET_X_LPARAM(lParam);
-		int yNewSize = GET_Y_LPARAM(lParam);
+		int yNewSize = GET_Y_LPARAM(lParam) - toolY - statusY;
 		// Construction from original MSDN source, inspect it.
 		if (fBlt)
 			fSize = TRUE;
@@ -185,15 +225,30 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		int dy = 0;
 		HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 			xCurrentScroll, yCurrentScroll, dy);
-		// Adjust status bar position and size when main window size changed.
-		// SendMessage(hWndStatusBar, WM_SIZE, wParam, lParam);
+		// Adjust tool bar and status bar position and size when main window size changed.
+		RECT r;
+		if (hWndToolBar)
+		{
+			SendMessage(hWndToolBar, TB_AUTOSIZE, 0, 0);
+			GetWindowRect(hWndToolBar, &r);
+			toolY = r.bottom - r.top;
+		}
+
+		if (hWndStatusBar)
+		{
+			SendMessage(hWndStatusBar, WM_SIZE, wParam, lParam);
+			GetWindowRect(hWndStatusBar, &r);
+			statusY = r.bottom - r.top;
+		}
+		MakeInvalidation(hWnd);
 	}
 	break;
 
 	case WM_LBUTTONUP:
 	{
+		ClearInvalidation();
 		int mouseX = GET_X_LPARAM(lParam);
-		int mouseY = GET_Y_LPARAM(lParam);
+		int mouseY = GET_Y_LPARAM(lParam) - toolY;
 		PTREENODE p = pModel->GetTree();
 		POINT b = pModel->GetBase();
 
@@ -209,7 +264,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		if (GetClientRect(hWnd, &r))
 		{
 			int xNewSize = r.right - r.left;
-			int yNewSize = r.bottom - r.top;
+			int yNewSize = r.bottom - r.top - toolY - statusY;
 			// Construction from original MSDN source, inspect it.
 			if (fBlt)
 				fSize = TRUE;
@@ -225,19 +280,23 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 
 		// Restore Open/Close icon lighting by mouse cursor after node clicked.
 		HelperRecursiveMouseMove(p, hWnd, hdcScreenCompat, fSize, TRUE,
-			mouseX, mouseY, xCurrentScroll, yCurrentScroll);
+			mouseX, mouseY, xCurrentScroll, yCurrentScroll, toolY);
+		MakeInvalidation(hWnd);
 	}
 	break;
 
 	case WM_MOUSEMOVE:
 	{
+		ClearInvalidation();
 		HelperRecursiveMouseMove(pModel->GetTree(), hWnd, hdcScreenCompat, fSize, FALSE,
-			GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), xCurrentScroll, yCurrentScroll);
+			GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), xCurrentScroll, yCurrentScroll, toolY);
+		MakeInvalidation(hWnd);
 	}
 	break;
 
 	case WM_HSCROLL:
 	{
+		ClearInvalidation();
 		int addX = 0;
 		int selector = LOWORD(wParam);
 		int value = HIWORD(wParam);
@@ -271,11 +330,13 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 			HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 				xCurrentScroll, yCurrentScroll, dy);
 		}
+		MakeInvalidation(hWnd);
 	}
 	break;
 
 	case WM_VSCROLL:
 	{
+		ClearInvalidation();
 		int addY = 0;
 		int selector = LOWORD(wParam);
 		int value = HIWORD(wParam);
@@ -309,11 +370,13 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 			HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 				xCurrentScroll, yCurrentScroll, dy);
 		}
+		MakeInvalidation(hWnd);
 	}
 	break;
 
 	case WM_MOUSEWHEEL:
 	{
+		ClearInvalidation();
 		int addY = -(short)HIWORD(wParam) / WHEEL_DELTA * 30;
 		if (addY != 0)
 		{
@@ -323,11 +386,13 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 			HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 				xCurrentScroll, yCurrentScroll, dy);
 		}
+		MakeInvalidation(hWnd);
 	}
 	break;
 
 	case WM_KEYDOWN:
 	{
+		ClearInvalidation();
 		int addX = 0;
 		int addY = 0;
 		int dy = 0;
@@ -349,7 +414,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 				HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 					xCurrentScroll, yCurrentScroll, dy);
 				fSize = TRUE;
-				InvalidateRect(hWnd, NULL, false);
+				SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 			}
 			else
 			{
@@ -365,7 +430,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 				HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 					xCurrentScroll, yCurrentScroll, dy);
 				fSize = TRUE;
-				InvalidateRect(hWnd, NULL, false);
+				SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 			}
 			else
 			{
@@ -391,7 +456,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 			HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 				xCurrentScroll, yCurrentScroll, dy);
 			fSize = TRUE;
-			InvalidateRect(hWnd, NULL, false);
+			SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 			break;
 
 		case VK_ADD:
@@ -406,7 +471,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 				treeDimension = HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 					xCurrentScroll, yCurrentScroll, dy);
 				fSize = TRUE;
-				InvalidateRect(hWnd, NULL, false);
+				SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 
 				RECT r = { 0,0,0,0 };
 				if (GetClientRect(hWnd, &r))
@@ -439,25 +504,29 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 			HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 				xCurrentScroll, yCurrentScroll, dy);
 		}
+		MakeInvalidation(hWnd);
 	}
 	break;
 
 	case WM_COMMAND:
 	{
+		ClearInvalidation();
 		switch (LOWORD(wParam))
 		{
+		case ID_TB_ABOUT:
 		case IDM_HELP_ABOUT:
 			setTreeModel(pModel);
 			DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_ABOUT), hWnd, (DLGPROC)DlgProc, 0);
 			break;
 
+		case ID_TB_EXIT:
 		case IDM_FILE_EXIT:
 			SendMessage(hWnd, WM_DESTROY, 0, 0);
 			break;
 		default:
 			break;
 		}
-
+		MakeInvalidation(hWnd);
 	}
 	break;
 
@@ -621,7 +690,7 @@ void TreeView::HelperAdjustScrollX(HWND hWnd, SCROLLINFO& scrollInfo, RECT& tree
 	xMaxScroll = max(tempSize - xNewSize, 0);                    // max(bmp.bmWidth - xNewSize, 0);
 	xCurrentScroll = min(xCurrentScroll, xMaxScroll);
 	scrollInfo.cbSize = sizeof(SCROLLINFO);
-	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS; // | SIF_DISABLENOSCROLL;
+	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS | SIF_DISABLENOSCROLL;
 	scrollInfo.nMin = xMinScroll;
 	scrollInfo.nMax = tempSize;                                  // bmp.bmWidth;
 	scrollInfo.nPage = xNewSize;
@@ -639,7 +708,7 @@ void TreeView::HelperAdjustScrollY(HWND hWnd, SCROLLINFO& scrollInfo, RECT& tree
 	yMaxScroll = max(tempSize - yNewSize, 0);                    // max(bmp.bmHeight - yNewSize, 0);
 	yCurrentScroll = min(yCurrentScroll, yMaxScroll);
 	scrollInfo.cbSize = sizeof(SCROLLINFO);
-	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS; // | SIF_DISABLENOSCROLL;
+	scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS | SIF_DISABLENOSCROLL;
 	scrollInfo.nMin = yMinScroll;
 	scrollInfo.nMax = tempSize;                                  // bmp.bmHeight;
 	scrollInfo.nPage = yNewSize;
@@ -663,11 +732,11 @@ void TreeView::HelperMakeScrollX(HWND hWnd, SCROLLINFO& scrollInfo,
 		xCurrentScroll = xNewPos;
 		// Update the scroll bar position.
 		scrollInfo.cbSize = sizeof(SCROLLINFO);
-		scrollInfo.fMask = SIF_POS; // | SIF_DISABLENOSCROLL; // SIF_POS;
+		scrollInfo.fMask = SIF_POS | SIF_DISABLENOSCROLL;
 		scrollInfo.nPos = xCurrentScroll;
 		SetScrollInfo(hWnd, SB_HORZ, &scrollInfo, TRUE);
 		// Request for all window repaint
-		InvalidateRect(hWnd, NULL, false);
+		SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 	}
 }
 // Helper for make vertical scrolling by given signed offset.
@@ -687,11 +756,11 @@ void TreeView::HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
 		yCurrentScroll = yNewPos;
 		// Update the scroll bar position.
 		scrollInfo.cbSize = sizeof(SCROLLINFO);
-		scrollInfo.fMask = SIF_POS; // | SIF_DISABLENOSCROLL; // SIF_POS;
+		scrollInfo.fMask = SIF_POS | SIF_DISABLENOSCROLL;
 		scrollInfo.nPos = yCurrentScroll;
 		SetScrollInfo(hWnd, SB_VERT, &scrollInfo, TRUE);
 		// Request for all window repaint
-		InvalidateRect(hWnd, NULL, false);
+		SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 	}
 }
 // Helper for update open-close icon light depend on mouse cursor position near icon.
@@ -764,10 +833,12 @@ void TreeView::HelperOpenCloseMouseLightScrolled(HWND hWnd, PTREENODE p, HDC hdc
 }
 // This part for support recursive tree levels and eliminate level count limits.
 void TreeView::HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize, BOOL forceUpdate,
-	int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll)
+	int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll, int offsetY)
 {
-	RECT a;
-	bool currentMouse = (DetectMousePosition(mouseX, mouseY, p) && (p->openable));
+
+	// mouseY = screen coordinate, contain tool bar size.
+	// mouseY - offsetY = coordinate in the compatible context.
+	bool currentMouse = (DetectMousePosition(mouseX, mouseY - offsetY, p) && (p->openable));
 	if (((currentMouse != p->prevMouse) || forceUpdate) && p->openable)
 	{   // Operation for node, addressed by caller.
 		int index;
@@ -780,13 +851,15 @@ void TreeView::HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCom
 			currentMouse ? index = ID_CLOSED_LIGHT : index = ID_CLOSED;
 		}
 		HICON hIcon = pModel->GetIconHandleByIndex(index);
+
+		RECT a;
 		DrawIconEx(hdcScreenCompat, p->clickArea.left, p->clickArea.top, hIcon,
 			X_ICON_SIZE, Y_ICON_SIZE, 0, NULL, DI_NORMAL | DI_COMPAT);
 		fSize = TRUE;
 		a.left = p->clickArea.left;
-		a.top = p->clickArea.top;
+		a.top = p->clickArea.top + offsetY;
 		a.right = p->clickArea.right;
-		a.bottom = p->clickArea.bottom;
+		a.bottom = p->clickArea.bottom + offsetY;
 		InvalidateRect(hWnd, &a, false);
 		p->prevMouse = currentMouse;
 	}
@@ -799,7 +872,7 @@ void TreeView::HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCom
 			for (int i = 0; i < n; i++)
 			{
 				HelperRecursiveMouseMove(p, hWnd, hdcScreenCompat, fSize, forceUpdate,
-					mouseX, mouseY, xCurrentScroll, yCurrentScroll);
+					mouseX, mouseY, xCurrentScroll, yCurrentScroll, offsetY);
 				p++;
 			}
 		}
@@ -820,7 +893,7 @@ RECT TreeView::HelperRecursiveMouseClick(PTREENODE p, POINT b, HWND hWnd, HDC hd
 		rDimension = HelperRecursiveDrawTree(pModel->GetTree(), pModel->GetBase(),
 			fTab, hdcScreenCompat, hFont, xCurrentScroll, yCurrentScroll, dy);
 		fSize = TRUE;
-		InvalidateRect(hWnd, NULL, false);
+		SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 	}
 	else if (p->openable)
 	{
@@ -966,6 +1039,26 @@ void TreeView::HelperRecursiveMN(PTREENODE& p1, PTREENODE& pFound, PTREENODE& pN
 	}
 }
 
+void TreeView::ClearInvalidation()
+{
+	invalidationRequest = false;
+}
+void TreeView::SetInvalidation()
+{
+	invalidationRequest = true;
+}
+void TreeView::MakeInvalidation(HWND hWnd)
+{
+	if (invalidationRequest)
+	{
+		InvalidateRect(hWnd, NULL, false);
+		invalidationRequest = false;
+	}
+}
+
 // Storage for model class.
 TreeModel* TreeView::pModel = NULL;
 
+// Support deferred screen invalidation method for prevent blinking.
+// Note partial invalidation requests (if LPRECT not NULL) not deferred.
+BOOL TreeView::invalidationRequest = false;

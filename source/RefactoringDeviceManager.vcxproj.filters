@@ -42,6 +42,15 @@
     <ClCompile Include="DialogueAbout.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="StatusBar.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="ToolBar.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="TreeViewDebug.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TreeModel.h">
@@ -72,6 +81,15 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Main.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="StatusBar.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="ToolBar.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="TreeViewDebug.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
@@ -124,9 +142,6 @@
       <Filter>Файлы ресурсов</Filter>
     </Image>
     <Image Include="Icons_System\keyboards.ico">
-      <Filter>Файлы ресурсов</Filter>
-    </Image>
-    <Image Include="icons_system\icon2.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
     <Image Include="Icons_System\mass_storage.ico">
@@ -196,6 +211,9 @@
       <Filter>Файлы ресурсов</Filter>
     </Image>
     <Image Include="Icons_App\books.ico">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="bitmaps_app\toolbar.bmp">
       <Filter>Файлы ресурсов</Filter>
     </Image>
   </ItemGroup>

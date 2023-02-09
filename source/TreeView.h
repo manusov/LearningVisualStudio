@@ -55,6 +55,8 @@ Note TreeView.cpp use offset change for scroll, not redraw!
 #include <windowsx.h>
 #include <CommCtrl.h>
 #include "TreeModel.h"
+#include "ToolBar.h"
+#include "StatusBar.h"
 #include "DialogueAbout.h"
 #include "resource.h"
 
@@ -67,8 +69,6 @@ Note TreeView.cpp use offset change for scroll, not redraw!
 #define BACKGROUND_BRUSH  RGB(213, 240, 213)
 #define SELECTED_BRUSH    RGB(245, 245, 120)
 
-#define ID_STATUS_BAR 400
-
 class TreeView
 {
 public:
@@ -77,7 +77,7 @@ public:
 	void SetAndInitModel(TreeModel* p);
 	// Window callback procedure for device manager window.
 	virtual LRESULT CALLBACK AppViewer(HWND, UINT, WPARAM, LPARAM);
-private:
+protected:
 	// Helpers for mouse click and position detection.
 	bool DetectMouseClick(int xPos, int yPos, PTREENODE p);
 	bool DetectMousePosition(int xPos, int yPos, PTREENODE p);
@@ -113,7 +113,7 @@ private:
 	// This part for support recursive tree levels and eliminate level count limits.
 	// Helper for update open-close icon light depend on mouse cursor position near icon.
 	void HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize, BOOL forceUpdate,
-		int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll);
+		int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll, int offsetY);
 	RECT HelperRecursiveMouseClick(PTREENODE p, POINT b, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize,
 		PTREENODE& openNode, BOOL fTab, BITMAP bmp, HFONT hFont,
 		int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll);
@@ -132,8 +132,18 @@ private:
 	PTREENODE HelperRecursiveMarkNode(BOOL direction);
 	void HelperRecursiveMN(PTREENODE& p1, PTREENODE& pFound, PTREENODE& pNext, PTREENODE& pBack, PTREENODE& pTemp);
 
+	// Support deferred screen invalidation method for prevent blinking.
+	// Note partial invalidation requests (if LPRECT not NULL) not deferred.
+	void ClearInvalidation();
+	void SetInvalidation();
+	void MakeInvalidation(HWND hWnd);
+
 	// Link to tree model.
 	static TreeModel* pModel;
+
+	// Support deferred screen invalidation method for prevent blinking.
+	// Note partial invalidation requests (if LPRECT not NULL) not deferred.
+	static BOOL invalidationRequest;
 };
 
 #endif  // TREEVIEW_H

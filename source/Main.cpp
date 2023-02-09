@@ -40,12 +40,27 @@ http://ru.softoware.org/apps/download-open-icon-library-for-windows.html
 https://sourceforge.net/projects/openiconlibrary/
 http://www.sibcode.com/junior-icon-editor/
 
+TODO.
+
+BUG1: Mouse move tracking when _NEW_GUI (at Main.h) enabled.
+      Questions about offsetY.
+	  InvalidateRect must add toolY and subtract (toolY + statusY) instead rect = NULL?
+	  InvalidateRect must be called conditionally for prevent flip.
+
+BUG2: Screen flip when tree open-close, required correction of double bufferring logic.
+      Caused by multi-invalidations instead final-only invalidation?
+	  Occurred when scroll bar show status changed?
+
+BUG3: Scroll bar below status bar, required swap, use SB_CTL instead SB_HORZ, SB_VERT?
+      Fix this bug when refactoring by build class TreeViewDebug?
+
 ---------------------------------------------------------------------------------------- */
 
 #include <windows.h>
 #include "KWnd.h"
 #include "TreeModel.h"
 #include "TreeView.h"
+#include "TreeViewDebug.h"
 #include "TreeController.h"
 #include "TreeControllerExt.h"
 #include "TreeControllerSys.h"
@@ -63,53 +78,69 @@ LRESULT CALLBACK TransitWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
-	// Initialize system context.
+	// Initialize common controls.
 	int status = 0;
-	pModel = new TreeModel();
-	pView = new TreeView();
+	INITCOMMONCONTROLSEX icc;
+	icc.dwSize = sizeof(INITCOMMONCONTROLSEX);
+	icc.dwICC = ICC_WIN95_CLASSES;
+	if (InitCommonControlsEx(&icc))
+	{
+		// Initialize application and system context.
+		pModel = new TreeModel();
+
+#ifdef _NEW_GUI
+		pView = new TreeViewDebug();
+#else
+		pView = new TreeView();
+#endif
 
 #ifdef _EMULATED_MODE
 #ifdef _EXT_EMULATION
-	pController = new TreeControllerExt();
+		pController = new TreeControllerExt();
 #else
-	pController = new TreeController();
+		pController = new TreeController();
 #endif
 #else
-	pController = new TreeControllerSys();
+		pController = new TreeControllerSys();
 #endif
 
-	if (pModel && pView && pController)
-	{
-		if (pModel->getInitStatus())
+		if (pModel && pView && pController)
 		{
-			pController->SetAndInitModel(pModel);
-			pView->SetAndInitModel(pModel);
-			// Set tree base coordinates.
-			POINT treeBase = { X_BASE_TREE, Y_BASE_TREE };
-			pModel->SetBase(treeBase);
-			// Set tree data.
-			PTREENODE tree = pController->BuildTree();
-			pModel->SetTree(tree);
-			if (tree)
+			if (pModel->getInitStatus())
 			{
-				// Write build name string.
-				CHAR buildName[BUILD_NAME_MAX];
-				_snprintf_s(buildName, BUILD_NAME_MAX, _TRUNCATE, "%s %s%s %s %s",
-					ABOUT_TEXT_1, ABOUT_TEXT_2_1, ABOUT_TEXT_2_2, ABOUT_TEXT_2_3, ABOUT_TEXT_2_4);
-				// Show application window = Device Manager tree.
-				KWnd mainWnd((LPCSTR)buildName, hInstance, nCmdShow,
-					TransitWndProc,
-					MAKEINTRESOURCE(IDR_MAIN_MENU),
-					590, 280, 800, 640,
-					CS_HREDRAW | CS_VREDRAW,
-					WS_OVERLAPPEDWINDOW | WS_HSCROLL | WS_VSCROLL,
-					NULL);
-				// Handling user events
-				MSG msg;
-				while (GetMessage(&msg, NULL, 0, 0))
+				pController->SetAndInitModel(pModel);
+				pView->SetAndInitModel(pModel);
+				// Set tree base coordinates.
+				POINT treeBase = { X_BASE_TREE, Y_BASE_TREE };
+				pModel->SetBase(treeBase);
+				// Set tree data.
+				PTREENODE tree = pController->BuildTree();
+				pModel->SetTree(tree);
+				if (tree)
 				{
-					TranslateMessage(&msg);
-					DispatchMessage(&msg);
+					// Write build name string.
+					CHAR buildName[BUILD_NAME_MAX];
+					_snprintf_s(buildName, BUILD_NAME_MAX, _TRUNCATE, "%s %s%s %s %s",
+						ABOUT_TEXT_1, ABOUT_TEXT_2_1, ABOUT_TEXT_2_2, ABOUT_TEXT_2_3, ABOUT_TEXT_2_4);
+					// Show application window = Device Manager tree.
+					KWnd mainWnd((LPCSTR)buildName, hInstance, nCmdShow,
+						TransitWndProc,
+						MAKEINTRESOURCE(IDR_MAIN_MENU),
+						590, 280, 800, 640,
+						CS_HREDRAW | CS_VREDRAW,
+						WS_OVERLAPPEDWINDOW | WS_HSCROLL | WS_VSCROLL,
+						NULL);
+					// Handling user events
+					MSG msg;
+					while (GetMessage(&msg, NULL, 0, 0))
+					{
+						TranslateMessage(&msg);
+						DispatchMessage(&msg);
+					}
+				}
+				else
+				{
+					status = 4;
 				}
 			}
 			else
@@ -134,19 +165,22 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		switch (status)
 		{
 		case 1:
-			s = "Classes initialization failed.";
+			s = "Common controls initialization failed.";
 			break;
 		case 2:
-			s = "Resources initialization failed.";
+			s = "Classes initialization failed.";
 			break;
 		case 3:
+			s = "Resources initialization failed.";
+			break;
+		case 4:
 			s = "Build system tree failed.";
 			break;
 		default:
 			s = "Unknown error.";
 			break;
 		}
-		MessageBox(NULL, s, "Device manager error.", MB_OK);
+		MessageBox(NULL, s, "Application starting error.", MB_OK | MB_ICONERROR);
 	}
 
 	// Restore system context and exit application.
