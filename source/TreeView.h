@@ -107,9 +107,11 @@ protected:
 	// Helper for make vertical scrolling by given signed offset.
 	void HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
 		int yMaxScroll, int& yCurrentScroll, BOOL& fScroll, int addY);
+	/*
 	// Helper for update open-close icon light depend on mouse cursor position near icon.
 	void HelperOpenCloseMouseLightScrolled(HWND hWnd, PTREENODE p, HDC hdcScreenCompat, int mouseX, int mouseY,
 		int xCurrentScroll, int yCurrentScroll, BOOL& fSize, BOOL forceUpdate);
+	*/
 	// This part for support recursive tree levels and eliminate level count limits.
 	// Helper for update open-close icon light depend on mouse cursor position near icon.
 	void HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize, BOOL forceUpdate,

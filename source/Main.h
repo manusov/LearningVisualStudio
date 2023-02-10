@@ -19,7 +19,7 @@ Main global definitions and build settings.
 // Under construction.
    #define _NEW_GUI
 
-#define BUILD_VERSION  "0.10.6.0"
+#define BUILD_VERSION  "0.10.7.0"
 #define BUILD_NAME_MAX 160
 
 #if _WIN64

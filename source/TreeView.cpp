@@ -248,13 +248,13 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	{
 		ClearInvalidation();
 		int mouseX = GET_X_LPARAM(lParam);
-		int mouseY = GET_Y_LPARAM(lParam) - toolY;
+		int mouseY = GET_Y_LPARAM(lParam);
 		PTREENODE p = pModel->GetTree();
 		POINT b = pModel->GetBase();
 
 		RECT t = HelperRecursiveMouseClick(p, b, hWnd, hdcScreenCompat, fSize,
 			openNode, fTab, bmp, hFont,
-			mouseX, mouseY, xCurrentScroll, yCurrentScroll);
+			mouseX, mouseY - toolY, xCurrentScroll, yCurrentScroll);
 		if (t.right && t.bottom)
 		{
 			treeDimension = t;
@@ -763,6 +763,7 @@ void TreeView::HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
 		SetInvalidation();  // InvalidateRect(hWnd, NULL, false);
 	}
 }
+/*
 // Helper for update open-close icon light depend on mouse cursor position near icon.
 void TreeView::HelperOpenCloseMouseLightScrolled(HWND hWnd, PTREENODE p, HDC hdcScreenCompat, int mouseX, int mouseY,
 	int xCurrentScroll, int yCurrentScroll, BOOL& fSize, BOOL forceUpdate)
@@ -831,6 +832,7 @@ void TreeView::HelperOpenCloseMouseLightScrolled(HWND hWnd, PTREENODE p, HDC hdc
 		}
 	}
 }
+*/
 // This part for support recursive tree levels and eliminate level count limits.
 void TreeView::HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize, BOOL forceUpdate,
 	int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll, int offsetY)
