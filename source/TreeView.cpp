@@ -530,6 +530,17 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	}
 	break;
 
+	case WM_NOTIFY:
+	{
+		LPTOOLTIPTEXT lpTTT = (LPTOOLTIPTEXT)lParam;
+		if (lpTTT->hdr.code == TTN_NEEDTEXT)
+		{
+			lpTTT->hinst = GetModuleHandle(NULL);
+			lpTTT->lpszText = MAKEINTRESOURCE(lpTTT->hdr.idFrom);
+		}
+	}
+	break;
+
 	case WM_DESTROY:
 	{
 		if (backupBrush) SelectObject(hdcScreenCompat, backupBrush);

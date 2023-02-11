@@ -6,7 +6,6 @@ Support GUI window element: tool bar (ToolBar), located above main window.
 
 HWND InitToolBar(HWND hWnd)
 {
-
 	HWND hToolBar;
 	int btnID[NUM_BUTTONS] = { ID_TB_ABOUT, ID_TB_EXIT };
 	int btnStyle[NUM_BUTTONS] = { TBSTYLE_BUTTON, TBSTYLE_BUTTON };
