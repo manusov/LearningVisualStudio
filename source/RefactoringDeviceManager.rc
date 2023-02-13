@@ -128,6 +128,16 @@ IDI_VIDEO_ADAPTERS      ICON                    "Icons_System\\video_adapters.ic
 
 IDI_BOOKS               ICON                    "Icons_App\\books.ico"
 
+IDI_RES_MEMORY          ICON                    "Icons_Resources\\memory.ico"
+
+IDI_RES_LARGE_MEMORY    ICON                    "Icons_Resources\\large_memory.ico"
+
+IDI_RES_IO              ICON                    "Icons_Resources\\io.ico"
+
+IDI_RES_IRQ             ICON                    "Icons_Resources\\irq.ico"
+
+IDI_RES_DMA             ICON                    "Icons_Resources\\dma.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -144,6 +154,11 @@ BEGIN
         MENUITEM "L&oad report ...",            IDM_FILE_LOADREPORT, INACTIVE
         MENUITEM SEPARATOR
         MENUITEM "E&xit",                       IDM_FILE_EXIT
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Devices",                    IDM_VIEW_DEVICES
+        MENUITEM "&Resources",                  IDM_VIEW_RESOURCES
     END
     POPUP "&Help"
     BEGIN
@@ -203,6 +218,9 @@ END
 
 IDR_TOOLBAR TOOLBAR 16, 16
 BEGIN
+    BUTTON      ID_TB_DEVICES
+    BUTTON      ID_TB_RESOURCES
+    BUTTON      ID_SEP
     BUTTON      ID_TB_ABOUT
     BUTTON      ID_TB_EXIT
 END
@@ -225,6 +243,8 @@ STRINGTABLE
 BEGIN
     ID_TB_ABOUT             "About"
     ID_TB_EXIT              "Exit"
+    ID_TB_DEVICES           "View devices list"
+    ID_TB_RESOURCES         "View resources usage map"
 END
 
 #endif    // Русский (Россия) resources

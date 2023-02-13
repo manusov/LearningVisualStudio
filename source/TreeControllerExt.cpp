@@ -17,7 +17,7 @@ TreeControllerExt::~TreeControllerExt()
 	// Reserved functionality.
 }
 
-PTREENODE TreeControllerExt::BuildTree()
+PTREENODE TreeControllerExt::BuildTree(UINT mode)
 {
 	pTreeBase = NULL;
 	if (pModel)

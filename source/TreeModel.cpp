@@ -50,13 +50,13 @@ LPCSTR TreeModel::GetIconNameByIndex(int index)
 	}
 	return name;
 }
-PTREENODE TreeModel::GetTree()
+PTREENODE* TreeModel::GetTrees()
 {
-	return tree;
+	return trees;
 }
-void TreeModel::SetTree(PTREENODE t)
+void TreeModel::SetTrees(PTREENODE* pt)
 {
-	tree = t;
+	trees = pt;
 }
 POINT TreeModel::GetBase()
 {
@@ -88,7 +88,8 @@ const char* TreeModel::ICON_NAMES[] =
 	"Network controllers", "Other devices", "PCI", "PCI IDE controllers", "COM and LPT ports", "Print queues", "Processors",
 	"Root enumerator", "SCSI controllers", "Security devices", "Software components", "Software defined devices",
 	"System tree", "This computer", "UEFI", "User mode bus enumerator", "USB", "USB mass storage devices",
-	"Video adapters"
+	"Video adapters",
+	"Memory", "Large memory", "IO", "IRQ", "DMA"
 };
 const int TreeModel::ICON_IDS[] =
 {
@@ -99,11 +100,12 @@ const int TreeModel::ICON_IDS[] =
 	IDI_NETWORK, IDI_OTHER, IDI_PCI, IDI_PCI_IDE, IDI_PORTS, IDI_PRINT, IDI_PROCESSORS,
 	IDI_ROOT_ENUMERATOR, IDI_SCSI, IDI_SECURITY, IDI_SOFT_COMPONENTS, IDI_SOFT_DEVICES,
 	IDI_SYSTEM_TREE, IDI_THIS_COMPUTER, IDI_UEFI, IDI_UM_BUS, IDI_USB, IDI_USB_STORAGE,
-	IDI_VIDEO_ADAPTERS
+	IDI_VIDEO_ADAPTERS,
+	IDI_RES_MEMORY, IDI_RES_LARGE_MEMORY, IDI_RES_IO, IDI_RES_IRQ, IDI_RES_DMA
 };
 const int TreeModel::ICON_COUNT = sizeof(ICON_IDS) / sizeof(int);
 HICON TreeModel::iconHandles[ICON_COUNT];
-PTREENODE TreeModel::tree = NULL;
+PTREENODE* TreeModel::trees = NULL;
 POINT TreeModel::base = { 0, 0 };
 // Child nodes descriptions per each category, for emulated constant tree parameters.
 LPCSTR STRINGS_BLUETOOTH[] = { "Intel(R) Wireless Bluetooth", "Microsoft Bluetooth enumerator", "Some Bluetooth adapter" };

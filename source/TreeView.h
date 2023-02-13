@@ -60,15 +60,6 @@ Note TreeView.cpp use offset change for scroll, not redraw!
 #include "DialogueAbout.h"
 #include "resource.h"
 
-#define X_BASE_TREE 10
-#define Y_BASE_TREE 10
-#define X_ICON_SIZE 16
-#define Y_ICON_SIZE 16
-#define X_ICON_STEP 18
-#define Y_ICON_STEP 18
-#define BACKGROUND_BRUSH  RGB(213, 240, 213)
-#define SELECTED_BRUSH    RGB(245, 245, 120)
-
 class TreeView
 {
 public:
@@ -118,7 +109,7 @@ protected:
 		int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll, int offsetY);
 	RECT HelperRecursiveMouseClick(PTREENODE p, POINT b, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize,
 		PTREENODE& openNode, BOOL fTab, BITMAP bmp, HFONT hFont,
-		int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll);
+		int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll, int sel);
 	// Helper for draw tree by nodes linked list and base coordinate point.
 	// Returns tree array (xleft, ytop, xright, ybottom),
 	// This parameters better calculate during draw, because depend on font size,
@@ -131,7 +122,7 @@ protected:
 	// 0 = increment, mark next node or no changes if last node currently marked,
 	// 1 = decrement, mark previous node or no changes if first (root) node currently marked.
 	// Returns pointer to selected node.
-	PTREENODE HelperRecursiveMarkNode(BOOL direction);
+	PTREENODE HelperRecursiveMarkNode(BOOL direction, int sel);
 	void HelperRecursiveMN(PTREENODE& p1, PTREENODE& pFound, PTREENODE& pNext, PTREENODE& pBack, PTREENODE& pTemp);
 
 	// Support deferred screen invalidation method for prevent blinking.

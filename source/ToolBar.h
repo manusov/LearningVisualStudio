@@ -11,8 +11,8 @@ Support GUI window element: tool bar (ToolBar), located above main window.
 #include "resource.h"
 
 #define ID_TOOLBAR       501
-#define NUM_BUTTONS      2
-#define SEPARATOR_WIDTH  10
+#define NUM_BUTTONS      5
+#define SEPARATOR_WIDTH  6
 
 HWND InitToolBar(HWND hWnd);
 

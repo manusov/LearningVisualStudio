@@ -14,7 +14,7 @@ TreeController::~TreeController()
 {
 	// Reserved functionality.
 }
-PTREENODE TreeController::BuildTree()
+PTREENODE TreeController::BuildTree(UINT mode)
 {
 	pTreeBase = NULL;
 	if (pModel)
@@ -101,4 +101,5 @@ void TreeController::SetAndInitModel(TreeModel* p)
 }
 
 PTREENODE TreeController::pTreeBase = NULL;
+PTREENODE TreeController::pTreeBaseBack = NULL;
 TreeModel* TreeController::pModel = NULL;

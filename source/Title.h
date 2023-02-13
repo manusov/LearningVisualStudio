@@ -1,10 +1,10 @@
 /* ----------------------------------------------------------------------------------------
-Main global definitions and build settings.
+Application title strings definitions.
 ---------------------------------------------------------------------------------------- */
 
 #pragma once
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef TITLE_H
+#define TITLE_H
 
 // Select emulated or system scan mode: uncomment this for debug.
 // Emulated mode means use constant emulated system configuration info
@@ -19,7 +19,7 @@ Main global definitions and build settings.
 // Under construction.
    #define _NEW_GUI
 
-#define BUILD_VERSION  "0.10.8.0"
+#define BUILD_VERSION  "0.11.0.0"
 #define BUILD_NAME_MAX 160
 
 #if _WIN64
@@ -88,4 +88,4 @@ Main global definitions and build settings.
 #define ABOUT_TEXT_3          RESOURCE_COPYRIGHT
 #endif
 
-#endif  // MAIN_H
+#endif  // TITLE_H

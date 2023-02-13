@@ -5,8 +5,8 @@ At application debug, this class not used.
 At real system information show, this is child class of TreeController class.
 ---------------------------------------------------------------------------------------- */
 
-#include "TreeController.h"
 #include "TreeControllerSys.h"
+#include "Title.h"
 
 TreeControllerSys::TreeControllerSys()
 {
@@ -16,11 +16,34 @@ TreeControllerSys::~TreeControllerSys()
 {
 	// Reserved functionality.
 }
-PTREENODE TreeControllerSys::BuildTree()
+PTREENODE TreeControllerSys::BuildTree(UINT mode)
 {
+	// Select mode: devices tree or resources tree.
+	PGROUPSORT tempControl = sortControl;
+	UINT tempLength = SORT_CONTROL_LENGTH;
+	if (mode)
+	{
+		tempControl = resourceControl;
+		tempLength = RESOURCE_CONTROL_LENGTH;
+		pTreeBaseBack = pTreeBase;
+		pTreeBase = NULL;
+	}
+	
 	// Build sequence of strings.
 	pEnumBase = (LPSTR)malloc(SYSTEM_TREE_MEMORY_MAX);
-	UINT countEnum = EnumerateSystem(pEnumBase, SYSTEM_TREE_MEMORY_MAX, sortControl, SORT_CONTROL_LENGTH);
+	UINT countEnum = 0;
+	if (mode)
+	{
+		countEnum = EnumerateSystem(pEnumBase, SYSTEM_TREE_MEMORY_MAX,
+			sortControl, SORT_CONTROL_LENGTH,
+			resourceControl, RESOURCE_CONTROL_LENGTH, transitControl, TRANSIT_CONTROL_LENGTH);
+	}
+	else
+	{
+		countEnum = EnumerateSystem(pEnumBase, SYSTEM_TREE_MEMORY_MAX,
+			sortControl, SORT_CONTROL_LENGTH,
+			NULL, 0, NULL, 0);
+	}
 
 	if (countEnum)
 	{
@@ -48,10 +71,10 @@ PTREENODE TreeControllerSys::BuildTree()
 			p->prevMouse = 0;
 
 			// Build tree level 1 - classes nodes, childs of tree nodes.
-			PGROUPSORT pSortCtrl = sortControl;
+			PGROUPSORT pSortCtrl = tempControl;
 			PTREENODE pClassBase = p + 1;
 			UINT rootChilds = 0;
-			for (UINT i = 0; i < SORT_CONTROL_LENGTH; i++)
+			for (UINT i = 0; i < tempLength; i++)
 			{
 				p++;
 				p->hNodeIcon = pModel->GetIconHandleByIndex(pSortCtrl->iconIndex);
@@ -73,7 +96,7 @@ PTREENODE TreeControllerSys::BuildTree()
 			}
 
 			// Build tree level 2 - devices nodes, childs of classes nodes.
-			pSortCtrl = sortControl;
+			pSortCtrl = tempControl;
 			for (UINT i = 0; i < rootChilds; i++)
 			{
 				UINT classChilds = (UINT)(pSortCtrl->childStrings->size());
@@ -132,21 +155,55 @@ PTREENODE TreeControllerSys::BuildTree()
 }
 void TreeControllerSys::ReleaseTree()
 {
-	if (pTreeBase) free(pTreeBase);
-	if (pEnumBase) free(pEnumBase);
-	PGROUPSORT p = sortControl;
+	if (pTreeBase)
+	{
+		free(pTreeBase);
+		pTreeBase = NULL;
+	}
+	if (pTreeBaseBack)
+	{
+		free(pTreeBaseBack);
+		pTreeBaseBack = NULL;
+	}
+	if (pEnumBase)
+	{
+		free(pEnumBase);
+		pEnumBase = NULL;
+	}
+	PGROUPSORT p1 = sortControl;
 	for (UINT i = 0; i < SORT_CONTROL_LENGTH; i++)
 	{
-		if (p->childStrings)
+		if (p1->childStrings)
 		{
-			delete(p->childStrings);
-			p->childStrings = NULL;
-			p++;
+			delete(p1->childStrings);
+			p1->childStrings = NULL;
+			p1++;
+		}
+	}
+	p1 = resourceControl;
+	for (UINT i = 0; i < RESOURCE_CONTROL_LENGTH; i++)
+	{
+		if (p1->childStrings)
+		{
+			delete(p1->childStrings);
+			p1->childStrings = NULL;
+			p1++;
+		}
+	}
+	PRESOURCESORT p2 = transitControl;
+	for (UINT i = 0; i < TRANSIT_CONTROL_LENGTH; i++)
+	{
+		if (p2->childRanges)
+		{
+			delete(p2->childRanges);
+			p2->childRanges = NULL;
+			p2++;
 		}
 	}
 }
 LPCSTR TreeControllerSys::MAIN_SYSTEM_NAME = "This computer";
 int TreeControllerSys::MAIN_SYSTEM_ICON_INDEX = ID_THIS_COMPUTER;
+
 GROUPSORT TreeControllerSys::sortControl[] = {
 	{ "HTREE"    , "System tree"               , ID_SYSTEM_TREE      , new std::vector<LPCSTR> },
 	{ "ROOT"     , "Root enumerator"           , ID_ROOT_ENUMERATOR  , new std::vector<LPCSTR> },
@@ -169,4 +226,24 @@ GROUPSORT TreeControllerSys::sortControl[] = {
 	{ "OTHER"    , "Other devices types"       , ID_OTHER            , new std::vector<LPCSTR> }
 };
 const UINT TreeControllerSys::SORT_CONTROL_LENGTH = sizeof(sortControl) / sizeof(GROUPSORT);
+
+GROUPSORT TreeControllerSys::resourceControl[] = {
+	{ NULL       , "Memory"                    , ID_RES_MEMORY       , new std::vector<LPCSTR> },
+	{ NULL       , "Large memory"              , ID_RES_LARGE_MEMORY , new std::vector<LPCSTR> },
+	{ NULL       , "IO"                        , ID_RES_IO           , new std::vector<LPCSTR> },
+	{ NULL       , "IRQ"                       , ID_RES_IRQ          , new std::vector<LPCSTR> },
+	{ NULL       , "DMA"                       , ID_RES_DMA          , new std::vector<LPCSTR> }
+};
+const UINT TreeControllerSys::RESOURCE_CONTROL_LENGTH = sizeof(resourceControl) / sizeof(GROUPSORT);
+
+RESOURCESORT TreeControllerSys::transitControl[] = {
+	{ new std::vector<RESOURCEENTRY> },
+	{ new std::vector<RESOURCEENTRY> },
+	{ new std::vector<RESOURCEENTRY> },
+	{ new std::vector<RESOURCEENTRY> },
+	{ new std::vector<RESOURCEENTRY> }
+};
+const UINT TreeControllerSys::TRANSIT_CONTROL_LENGTH = sizeof(transitControl) / sizeof(RESOURCESORT);
+
 LPSTR TreeControllerSys::pEnumBase = NULL;
+

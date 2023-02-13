@@ -51,6 +51,9 @@
     <ClCompile Include="TreeViewDebug.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="EnumRes.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TreeModel.h">
@@ -80,7 +83,7 @@
     <ClInclude Include="DialogueAbout.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Main.h">
+    <ClInclude Include="Title.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="StatusBar.h">
@@ -90,6 +93,12 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="TreeViewDebug.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Global.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="EnumRes.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
@@ -214,6 +223,21 @@
       <Filter>Файлы ресурсов</Filter>
     </Image>
     <Image Include="bitmaps_app\toolbar.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="Icons_Resources\memory.ico">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="Icons_Resources\large_memory.ico">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="Icons_Resources\io.ico">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="Icons_Resources\irq.ico">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="Icons_Resources\dma.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
   </ItemGroup>

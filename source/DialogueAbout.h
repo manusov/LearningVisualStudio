@@ -12,7 +12,7 @@ TODO. Make this as class.
 #include <vector>
 #include "TreeModel.h"
 #include "resource.h"
-#include "Main.h"
+#include "Title.h"
 
 #define ABOUT_FONT_HEIGHT    16
 #define ABOUT_YBASE1         38

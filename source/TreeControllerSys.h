@@ -9,10 +9,8 @@ At real system information show, this is child class of TreeController class.
 #ifndef TREECONTROLLERSYS_H
 #define TREECONTROLLERSYS_H
 
-#include "TreeController.h"
 #include "Enumerator.h"
-
-#define SYSTEM_TREE_MEMORY_MAX 1024*1024*2
+#include "TreeController.h"
 
 class TreeControllerSys :
     public TreeController
@@ -20,13 +18,17 @@ class TreeControllerSys :
 public:
     TreeControllerSys();
     ~TreeControllerSys();
-    PTREENODE BuildTree();
+    PTREENODE BuildTree(UINT mode);
     void ReleaseTree();
 private:
     static LPCSTR MAIN_SYSTEM_NAME;
     static int MAIN_SYSTEM_ICON_INDEX;
     static GROUPSORT sortControl[];
     static const UINT SORT_CONTROL_LENGTH;
+    static GROUPSORT resourceControl[];
+    static const UINT RESOURCE_CONTROL_LENGTH;
+    static RESOURCESORT transitControl[];
+    static const UINT TRANSIT_CONTROL_LENGTH;
     static LPSTR pEnumBase;
 };
 

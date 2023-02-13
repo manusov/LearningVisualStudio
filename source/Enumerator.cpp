@@ -7,7 +7,10 @@ https://github.com/microsoft/Windows-driver-samples/tree/main/setup/devcon
 
 #include "Enumerator.h"
 
- UINT EnumerateSystem(LPTSTR pBase, UINT64 pMax, PGROUPSORT sortControl, UINT SORT_CONTROL_LENGTH)
+ UINT EnumerateSystem(LPTSTR pBase, UINT64 pMax, 
+     PGROUPSORT sControl, UINT sControlLength, 
+     PGROUPSORT rsControl, UINT rsControlLength, 
+     PRESOURCESORT trControl, UINT trControlLength)
 {
      int enumCount = 0;
      HDEVINFO hDevinfo = SetupDiGetClassDevsEx(NULL, NULL, NULL, DIGCF_PRESENT | DIGCF_ALLCLASSES, NULL, NULL, NULL);
@@ -78,7 +81,16 @@ https://github.com/microsoft/Windows-driver-samples/tree/main/setup/devcon
                  {
                      adv = snprintf(pBase, (size_t)pMax, "< No description strings >");
                  }
+                 // Save pointer to description string
                  summaryString = pBase;
+
+                 // Conditionally run resource usage enumeration agent
+                 if (trControl && trControlLength)
+                 {
+                     EnumerateDeviceResourcesToTransitList(hDevinfo, &devInfo, summaryString, trControl, trControlLength);
+                 }
+
+                 // Modify pointer and size limit, add 0 termination char.
                  pBase += adv;
                  pMax -= adv;
                  if (pMax <= 0) break;
@@ -90,9 +102,9 @@ https://github.com/microsoft/Windows-driver-samples/tree/main/setup/devcon
                  // Classify string pair entry and add to sort control list.
                  if (pathString)
                  {
-                     PGROUPSORT p = sortControl;
+                     PGROUPSORT p = sControl;
                      BOOL recognized = FALSE;
-                     for (UINT i = 0; i < (SORT_CONTROL_LENGTH - 1); i++)  // -1 because last entry is "OTHER"
+                     for (UINT i = 0; i < (sControlLength - 1); i++)  // -1 because last entry is "OTHER"
                      {
                          // Build pattern for comparision.
                          TCHAR pattern[MAX_DEVICE_ID_LEN + 2];
@@ -131,6 +143,20 @@ https://github.com/microsoft/Windows-driver-samples/tree/main/setup/devcon
          }
          if (!SetupDiDestroyDeviceInfoList(hDevinfo)) enumCount = 0;
      }
+     // Conditionally run translation resource usage enumeration agent results
+     // to resource tree map, sequence of GROUPSORT structures with
+     // Memory, Large memory, IO, IRQ, DMA.
+      
+     if (trControl && trControlLength && rsControl && rsControlLength)
+     {
+         EnumerateTransitListToGroupList(pBase, pMax, trControl, trControlLength, rsControl, rsControlLength);
+         // Terminate sequence of strings.
+         if (pMax < 0)
+         {
+             enumCount = 0;  // Invalidate results if buffer overflows.
+         }
+     }
+     
      return enumCount;
 }
 

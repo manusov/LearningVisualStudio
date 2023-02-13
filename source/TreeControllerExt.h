@@ -17,7 +17,7 @@ class TreeControllerExt :
 public:
     TreeControllerExt();
     ~TreeControllerExt();
-    PTREENODE BuildTree();
+    PTREENODE BuildTree(UINT mode);
 };
 
 #endif  // TREECONTROLLEREXT_H

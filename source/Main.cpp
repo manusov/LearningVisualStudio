@@ -58,18 +58,20 @@ BUG3: Scroll bar below status bar, required swap, use SB_CTL instead SB_HORZ, SB
 
 #include <windows.h>
 #include "KWnd.h"
-#include "TreeModel.h"
 #include "TreeView.h"
 #include "TreeViewDebug.h"
+#include "TreeModel.h"
 #include "TreeController.h"
 #include "TreeControllerExt.h"
 #include "TreeControllerSys.h"
 #include "resource.h"
-#include "Main.h"
+#include "Global.h"
+#include "Title.h"
 
 TreeModel* pModel = NULL;
 TreeView* pView = NULL;
 TreeController* pController = NULL;
+PTREENODE trees[2];
 
 LRESULT CALLBACK TransitWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -114,9 +116,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 				POINT treeBase = { X_BASE_TREE, Y_BASE_TREE };
 				pModel->SetBase(treeBase);
 				// Set tree data.
-				PTREENODE tree = pController->BuildTree();
-				pModel->SetTree(tree);
-				if (tree)
+				trees[0] = pController->BuildTree(0);
+				trees[1] = pController->BuildTree(1);
+				pModel->SetTrees(trees);
+				if (trees[0])
 				{
 					// Write build name string.
 					CHAR buildName[BUILD_NAME_MAX];
