@@ -19,7 +19,7 @@ Application title strings definitions.
 // Under construction.
    #define _NEW_GUI
 
-#define BUILD_VERSION  "0.11.0.0"
+#define BUILD_VERSION  "0.11.1.0"
 #define BUILD_NAME_MAX 160
 
 #if _WIN64

@@ -40,20 +40,49 @@ http://ru.softoware.org/apps/download-open-icon-library-for-windows.html
 https://sourceforge.net/projects/openiconlibrary/
 http://www.sibcode.com/junior-icon-editor/
 
+TODO FIXED.
+
+1)+  Mouse move tracking when _NEW_GUI (at Main.h) enabled.
+     Questions about offsetY.
+     InvalidateRect must add toolY and subtract (toolY + statusY) instead rect = NULL?
+	 InvalidateRect must be called conditionally for prevent flip.
+	 YET FIXED FOR "SCROLL BAR BELOW STATUS BAR" VARIANT.
+	 ADDED TOOLY, STATUSY, OFFSETY VARIABLES.
+
+2)+  Screen flip when tree open-close, required correction of double bufferring logic.
+     Caused by multi-invalidations instead final-only invalidation?
+	 Occurred when scroll bar show status changed?
+	 YET FIXED FOR "SCROLL BAR BELOW STATUS BAR" VARIANT.
+	 ALSO FLIP WHEN WINDOW RESIZED UNDER ORACLE VIRTUALBOX GUEST = WINDOWS 7.
+
+3)+  Large memory descriptors yet ignored.
+	 Note low memory descriptors below and above 4GB supported.
+	 FIXED.
+	 See "case ResType_MemLarge:" at "DumpDeviceResourcesOfType", EnumRes.cpp.
+
+4)+  Resource values (address, IRQ, DMA) must be sorted.
+     See "RESOURCESORT rs = trControl[i];" at "EnumerateTransitListToGroupList",
+	 EnumRes.cpp.
+	 FIXED.
+	 See "std::sort(rs.childRanges->begin(), rs.childRanges->end()," at
+	 "EnumerateTransitListToGroupList", EnumRes.cpp.
+
+5)+  Monospace font required, because address output better if formatted.
+     FIXED.
+	 See "case WM_CREATE:", TreeView.cpp.
+	 
 TODO.
 
-BUG1: Mouse move tracking when _NEW_GUI (at Main.h) enabled.
-      Questions about offsetY.
-	  InvalidateRect must add toolY and subtract (toolY + statusY) instead rect = NULL?
-	  InvalidateRect must be called conditionally for prevent flip.
+6)   Address aliases and duplications, see descriptors flags for all descriptor types.
+	 Example: why 70h-70h and not declared port 71h?
+	 Plus extended CMOS/RTC ports 72h-73h?
+	 See "DumpDeviceResourcesOfType", EnumRes.cpp.
+	 RAM, ROM, PREFETCHABLE AND OTHER ATTRIBUTES CAN BE USED LATER.
 
-BUG2: Screen flip when tree open-close, required correction of double bufferring logic.
-      Caused by multi-invalidations instead final-only invalidation?
-	  Occurred when scroll bar show status changed?
+7)   Resources map empty if 32-bit application runs under Win10 x64.
 
-BUG3: Scroll bar below status bar, required swap, use SB_CTL instead SB_HORZ, SB_VERT?
-      Fix this bug when refactoring by build class TreeViewDebug?
-
+8)   Scroll bar below status bar, required swap, use SB_CTL instead SB_HORZ, SB_VERT?
+     Fix this bug when refactoring by build class TreeViewDebug?
 ---------------------------------------------------------------------------------------- */
 
 #include <windows.h>

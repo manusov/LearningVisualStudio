@@ -3,10 +3,6 @@ Device resources enumerator.
 Special thanks to:
 Microsoft enumerator sample:
 https://github.com/microsoft/Windows-driver-samples/tree/main/setup/devcon
-
-TODO. ResType_MemLarge.
-TODO. Address aliases and duplications.
-TODO. Sorting resources numeric values.
 ---------------------------------------------------------------------------------------- */
 
 #pragma once
@@ -21,6 +17,8 @@ TODO. Sorting resources numeric values.
 #include <SetupAPI.h>
 #include <cfgmgr32.h>
 #include <strsafe.h>
+#include <vector>
+#include <algorithm>
 #include "Global.h"
 
 void EnumerateDeviceResourcesToTransitList(HDEVINFO Devs, PSP_DEVINFO_DATA DevInfo, LPCSTR devName, 

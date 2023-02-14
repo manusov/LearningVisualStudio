@@ -67,7 +67,7 @@ https://github.com/microsoft/Windows-driver-samples/tree/main/setup/devcon
                  UINT adv = 0;
                  if (nameString && pathString)
                  {
-                     adv = snprintf(pBase, (size_t)pMax, "%s  ( %s )", nameString, pathString);
+                     adv = snprintf(pBase, (size_t)pMax, "%s ( %s )", nameString, pathString);
                  }
                  else if (nameString)
                  {

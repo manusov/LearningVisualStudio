@@ -3,10 +3,6 @@ Device resources enumerator.
 Special thanks to:
 Microsoft enumerator sample:
 https://github.com/microsoft/Windows-driver-samples/tree/main/setup/devcon
-
-TODO. ResType_MemLarge.
-TODO. Address aliases and duplications.
-TODO. Sorting resources numeric values.
 ---------------------------------------------------------------------------------------- */
 
 #include "EnumRes.h"
@@ -24,12 +20,33 @@ void EnumerateTransitListToGroupList(LPTSTR& pBase, UINT64& pMax,
 {
     if (trControl && (trControlLength >= RES_MAX) && rsControl && (rsControlLength >= RES_MAX))
     {
+        // Cycle for resource types, i = resource type, select one af resource lists (MEM, LARGE MEM, IO, IRQ, DMA).
         for (int i = 0; i < RES_MAX; i++)
         {
+            if (pMax <= 0) break;
+            // Source data: get resource list structure from array of lists (MEM, LARGE MEM, IO, IRQ, DMA).
             RESOURCESORT rs = trControl[i];
-            GROUPSORT gs = rsControl[i];
+            // Sorting resource list with comparator as lambda expression.
+            std::sort(rs.childRanges->begin(), rs.childRanges->end(), 
+                [](RESOURCEENTRY x, RESOURCEENTRY y) 
+                { 
+                    bool flag;
+                    if (x.dataL == y.dataL)  // compare start address
+                    {   // variant with end address if start address match
+                        flag = x.dataH < y.dataH;
+                    }
+                    else
+                    {   // variant with start address if it differrent
+                        flag = x.dataL < y.dataL;
+                    }
+                    return flag;
+                });
+            // Get size of resource list and iterator.
             size_t n = rs.childRanges->size();
             std::vector<RESOURCEENTRY>::iterator vit = rs.childRanges->begin();
+            // Destination data: get node structure from tree control structures array.
+            GROUPSORT gs = rsControl[i];
+            // Cycle for resources ranges per type, j = index in the resources lists per each type.
             for (size_t j = 0; j < n; j++)
             {
                 RESOURCEENTRY re = *vit++;
@@ -38,25 +55,25 @@ void EnumerateTransitListToGroupList(LPTSTR& pBase, UINT64& pMax,
                 switch (i)
                 {
                 case RES_MEM:
-                    adv = snprintf(pBase, (size_t)pMax, " %08I64Xh-%08I64Xh : %s", re.dataL, re.dataH, re.deviceName);
+                    adv = snprintf(pBase, (size_t)pMax, "%08I64Xh-%08I64Xh : %s", re.dataL, re.dataH, re.deviceName);
                     gs.childStrings->push_back(pBase);
                     break;
                 case RES_LMEM:
-                    adv = snprintf(pBase, (size_t)pMax, " %016I64Xh-%016I64Xh : %s", re.dataL, re.dataH, re.deviceName);
+                    adv = snprintf(pBase, (size_t)pMax, "%016I64Xh-%016I64Xh : %s", re.dataL, re.dataH, re.deviceName);
                     gs.childStrings->push_back(pBase);
                     break;
                 case RES_IO:
-                    adv = snprintf(pBase, (size_t)pMax, " %04I64Xh-%04I64Xh : %s", re.dataL, re.dataH, re.deviceName);
+                    adv = snprintf(pBase, (size_t)pMax, "%04I64Xh-%04I64Xh : %s", re.dataL, re.dataH, re.deviceName);
                     gs.childStrings->push_back(pBase);
                     break;
                 case RES_IRQ:
                     a = (int)re.dataL;
-                    adv = snprintf(pBase, (size_t)pMax, " %d : %s", a, re.deviceName);
+                    adv = snprintf(pBase, (size_t)pMax, "%d : %s", a, re.deviceName);
                     gs.childStrings->push_back(pBase);
                     break;
                 case RES_DMA:
                     a = (int)re.dataL;
-                    adv = snprintf(pBase, (size_t)pMax, " %d : %s", a, re.deviceName);
+                    adv = snprintf(pBase, (size_t)pMax, "%d : %s", a, re.deviceName);
                     gs.childStrings->push_back(pBase);
                     break;
                 default:
@@ -232,6 +249,21 @@ BOOL DumpDeviceResourcesOfType(_In_ DEVINST DevInst, _In_ HMACHINE MachineHandle
                     //
                     retval = TRUE;
                 }
+                break;
+            }
+            case ResType_MemLarge:
+            {
+                PMEM_LARGE_RESOURCE  pMemData = (PMEM_LARGE_RESOURCE)resDesData;
+                DWORDLONG base = pMemData->MEM_LARGE_Header.MLD_Alloc_Base;
+                DWORDLONG end = pMemData->MEM_LARGE_Header.MLD_Alloc_End;
+                DWORDLONG limit = 0xFFFFFFFFL;
+                int index = RES_MEM;
+                if ((base > limit) || (end > limit)) index = RES_LMEM;
+                RESOURCEENTRY e;
+                e.deviceName = devName;
+                e.dataL = base;
+                e.dataH = end;
+                trControl[index].childRanges->push_back(e);
                 break;
             }
 
