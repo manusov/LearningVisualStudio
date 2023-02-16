@@ -14,7 +14,7 @@ class TreeController
 {
 public:
 	TreeController();
-	~TreeController();
+	virtual ~TreeController();
 	// Don't use constructor and destructor for build and release tree, because
 	// dynamical rebuild with model change and partial changes can be required.
 	void SetAndInitModel(TreeModel* p);
@@ -24,6 +24,9 @@ protected:
 	static PTREENODE pTreeBase;
 	static PTREENODE pTreeBaseBack;
 	static TreeModel* pModel;
+private:
+	static LPCSTR EMULATED_NAME_1;
+	static LPCSTR EMULATED_NAME_2;
 };
 
 #endif  // TREECONTROLLER_H

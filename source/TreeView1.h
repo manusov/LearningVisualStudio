@@ -1,5 +1,6 @@
 /* ----------------------------------------------------------------------------------------
 Class for create GUI window with tree visualization.
+First implementation.
 
 UNDER CONSTRUCTION: Upgraded version with state variables and recursive levels.
 S = Show region, can be resized by user actions (resize GUI window).
@@ -48,23 +49,21 @@ Note TreeView.cpp use offset change for scroll, not redraw!
 ---------------------------------------------------------------------------------------- */
 
 #pragma once
-#ifndef TREEVIEW_H
-#define TREEVIEW_H
+#ifndef TREEVIEW1_H
+#define TREEVIEW1_H
 
 #include <windows.h>
 #include <windowsx.h>
 #include <CommCtrl.h>
 #include "TreeModel.h"
-#include "ToolBar.h"
-#include "StatusBar.h"
 #include "DialogueAbout.h"
 #include "resource.h"
 
-class TreeView
+class TreeView1
 {
 public:
-	TreeView();
-	~TreeView();
+	TreeView1();
+	virtual ~TreeView1();
 	void SetAndInitModel(TreeModel* p);
 	// Window callback procedure for device manager window.
 	virtual LRESULT CALLBACK AppViewer(HWND, UINT, WPARAM, LPARAM);
@@ -84,19 +83,19 @@ protected:
 	// The horizontal scrolling range is defined by 
 	// (bitmap_width) - (client_width). The current horizontal 
 	// scroll value remains within the horizontal scrolling range.
-	void HelperAdjustScrollX(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
+	virtual void HelperAdjustScrollX(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
 		int xNewSize, int& xMaxScroll, int& xMinScroll, int& xCurrentScroll);
 	// Helper for adjust vertical scrolling parameters.
 	// The vertical scrolling range is defined by 
 	// (bitmap_height) - (client_height). The current vertical 
 	// scroll value remains within the vertical scrolling range. 
-	void HelperAdjustScrollY(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
+	virtual void HelperAdjustScrollY(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
 		int yNewSize, int& yMaxScroll, int& yMinScroll, int& yCurrentScroll);
 	// Helper for make horizontal scrolling by given signed offset.
-	void HelperMakeScrollX(HWND hWnd, SCROLLINFO& scrollInfo,
+	virtual void HelperMakeScrollX(HWND hWnd, SCROLLINFO& scrollInfo,
 		int xMaxScroll, int& xCurrentScroll, BOOL& fScroll, int addX);
 	// Helper for make vertical scrolling by given signed offset.
-	void HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
+	virtual void HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
 		int yMaxScroll, int& yCurrentScroll, BOOL& fScroll, int addY);
 	/*
 	// Helper for update open-close icon light depend on mouse cursor position near icon.
@@ -124,19 +123,19 @@ protected:
 	// Returns pointer to selected node.
 	PTREENODE HelperRecursiveMarkNode(BOOL direction, int sel);
 	void HelperRecursiveMN(PTREENODE& p1, PTREENODE& pFound, PTREENODE& pNext, PTREENODE& pBack, PTREENODE& pTemp);
-
 	// Support deferred screen invalidation method for prevent blinking.
 	// Note partial invalidation requests (if LPRECT not NULL) not deferred.
 	void ClearInvalidation();
 	void SetInvalidation();
 	void MakeInvalidation(HWND hWnd);
+	// Support tool bar.
+	HWND InitToolBar(HWND hWnd);
 
 	// Link to tree model.
 	static TreeModel* pModel;
-
 	// Support deferred screen invalidation method for prevent blinking.
 	// Note partial invalidation requests (if LPRECT not NULL) not deferred.
 	static BOOL invalidationRequest;
 };
 
-#endif  // TREEVIEW_H
+#endif  // TREEVIEW1_H

@@ -17,9 +17,9 @@ class TreeControllerSys :
 {
 public:
     TreeControllerSys();
-    ~TreeControllerSys();
-    PTREENODE BuildTree(UINT mode);
-    void ReleaseTree();
+    virtual ~TreeControllerSys() override;
+    virtual PTREENODE BuildTree(UINT mode) override;
+    virtual void ReleaseTree() override;
 private:
     static LPCSTR MAIN_SYSTEM_NAME;
     static int MAIN_SYSTEM_ICON_INDEX;

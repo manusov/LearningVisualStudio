@@ -22,6 +22,14 @@ Constants and data structures definitions.
 #define BACKGROUND_BRUSH  RGB(213, 240, 213)
 #define SELECTED_BRUSH    RGB(245, 245, 120)
 
+#define ID_TOOLBAR       501
+#define ID_STATUSBAR     601
+#define NUM_BUTTONS      5
+#define SEPARATOR_WIDTH  6
+
+#define SCROLLBAR_HEIGHT  16
+#define SCROLLBAR_WIDTH   17
+
 // "G_" means groups.
 typedef enum {
 	G_HTREE, G_ROOT, G_SWD,

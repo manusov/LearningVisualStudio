@@ -21,7 +21,7 @@
     <ClCompile Include="TreeModel.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="TreeView.cpp">
+    <ClCompile Include="TreeView1.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="TreeController.cpp">
@@ -36,22 +36,10 @@
     <ClCompile Include="Enumerator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="TreeControllerExt.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="DialogueAbout.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="StatusBar.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="ToolBar.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="TreeViewDebug.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="EnumRes.cpp">
+    <ClCompile Include="TreeView2.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -59,7 +47,7 @@
     <ClInclude Include="TreeModel.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="TreeView.h">
+    <ClInclude Include="TreeView1.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="TreeController.h">
@@ -77,28 +65,16 @@
     <ClInclude Include="Enumerator.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="TreeControllerExt.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="DialogueAbout.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Title.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="StatusBar.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="ToolBar.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="TreeViewDebug.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="Global.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="EnumRes.h">
+    <ClInclude Include="TreeView2.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

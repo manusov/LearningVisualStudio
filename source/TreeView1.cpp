@@ -1,5 +1,6 @@
 /* ----------------------------------------------------------------------------------------
 Class for create GUI window with tree visualization.
+First implementation.
 
 UNDER CONSTRUCTION: Upgraded version with state variables and recursive levels.
 S = Show region, can be resized by user actions (resize GUI window).
@@ -47,21 +48,21 @@ because full blanks and redraw.
 Note TreeView.cpp use offset change for scroll, not redraw!
 ---------------------------------------------------------------------------------------- */
 
-#include "TreeView.h"
+#include "TreeView1.h"
 
-TreeView::TreeView()
+TreeView1::TreeView1()
 {
 	// Reserved functionality.
 }
-TreeView::~TreeView()
+TreeView1::~TreeView1()
 {
 	// Reserved functionality.
 }
-void TreeView::SetAndInitModel(TreeModel* p)
+void TreeView1::SetAndInitModel(TreeModel* p)
 {
 	pModel = p;
 }
-LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK TreeView1::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	// These variables are required by BeginPaint, EndPaint, BitBlt. 
 	PAINTSTRUCT ps;              // Temporary storage for paint info  : ps.hdc = window, can be resized by user.
@@ -113,7 +114,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		// Fill window with background color.
 		bgndBrush = CreateSolidBrush(BACKGROUND_BRUSH);
 		SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)bgndBrush);
-		// Create font
+		// Create font.
 /*
 		hFont = CreateFont(13, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
 			CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, VARIABLE_PITCH, TEXT("Verdana"));
@@ -143,13 +144,9 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		backupBmp = SelectObject(hdcScreenCompat, hbmpCompat);
 		// Select the brush for the compatible DC.
 		backupBrush = (HBRUSH)SelectObject(hdcScreenCompat, bgndBrush);
-
-#ifdef _NEW_GUI
 		// Create application tool bar and status bar.
 		hWndToolBar = InitToolBar(hWnd);
 		hWndStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, " Ready...", hWnd, ID_STATUSBAR);
-#endif
-
 		// Adjust tool bar and status bar position and size.
 		RECT r;
 		if (hWndToolBar)
@@ -245,7 +242,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		HelperAdjustScrollY(hWnd, si, treeDimension, yNewSize, yMaxScroll, yMinScroll, yCurrentScroll);
 		BitBlt(hdcScreenCompat, 0, 0, bmp.bmWidth, bmp.bmHeight, NULL, 0, 0, PATCOPY);  // This for blank background
 		int dy = 0;
-		HelperRecursiveDrawTree(pModel->GetTrees()[selector], pModel->GetBase(), fTab, hdcScreenCompat, hFont,
+		treeDimension = HelperRecursiveDrawTree(pModel->GetTrees()[selector], pModel->GetBase(), fTab, hdcScreenCompat, hFont,
 			xCurrentScroll, yCurrentScroll, dy);
 		// Adjust tool bar and status bar position and size when main window size changed.
 		RECT r;
@@ -634,6 +631,7 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		if (hdcScreenCompat) DeleteDC(hdcScreenCompat);
 		if (hdcScreen) DeleteDC(hdcScreen);
 		if (hFont) DeleteObject(hFont);
+		if (bgndBrush) DeleteObject(bgndBrush);
 		PostQuitMessage(0);
 	}
 	break;
@@ -645,16 +643,16 @@ LRESULT CALLBACK TreeView::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 }
 // Helpers.
 // Helpers for mouse click and position detection
-bool TreeView::DetectMouseClick(int xPos, int yPos, PTREENODE p)
+bool TreeView1::DetectMouseClick(int xPos, int yPos, PTREENODE p)
 {
 	return (xPos > p->clickArea.left) && (xPos < p->clickArea.right) && (yPos > p->clickArea.top) && (yPos < p->clickArea.bottom);
 }
-bool TreeView::DetectMousePosition(int xPos, int yPos, PTREENODE p)
+bool TreeView1::DetectMousePosition(int xPos, int yPos, PTREENODE p)
 {
 	return (xPos > (p->clickArea.left + 1)) && (xPos < (p->clickArea.right - 1)) && (yPos > (p->clickArea.top + 1)) && (yPos < (p->clickArea.bottom - 1));
 }
 // Helper for unmark items stay invisible after parent item close.
-void TreeView::HelperMarkedClosedChilds(PTREENODE pParent, PTREENODE& openNode, BOOL fTab)
+void TreeView1::HelperMarkedClosedChilds(PTREENODE pParent, PTREENODE& openNode, BOOL fTab)
 {
 	if (fTab && (pParent->openable) && (!pParent->opened))
 	{
@@ -706,7 +704,7 @@ void TreeView::HelperMarkedClosedChilds(PTREENODE pParent, PTREENODE& openNode, 
 // Returns layer array (xleft, ytop, xright, ybottom),
 // This parameters better calculate during draw, because depend on font size,
 // current active font settings actual during draw.
-RECT TreeView::HelperDrawNodeLayerSized(PTREENODE pNodeList, int nodeCount, int nodeBaseX, int nodeBaseY,
+RECT TreeView1::HelperDrawNodeLayerSized(PTREENODE pNodeList, int nodeCount, int nodeBaseX, int nodeBaseY,
 	int iconStepX, int iconStepY, int iconSizeX, int iconSizeY, BOOL fTab, HDC hDC, HFONT hFont)
 {
 	RECT layerDimension = { 0,0,0,0 };
@@ -779,7 +777,7 @@ RECT TreeView::HelperDrawNodeLayerSized(PTREENODE pNodeList, int nodeCount, int 
 // The horizontal scrolling range is defined by 
 // (bitmap_width) - (client_width). The current horizontal 
 // scroll value remains within the horizontal scrolling range.
-void TreeView::HelperAdjustScrollX(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
+void TreeView1::HelperAdjustScrollX(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
 	int xNewSize, int& xMaxScroll, int& xMinScroll, int& xCurrentScroll)
 {
 	int tempSize = treeDimension.right - treeDimension.left;     // added
@@ -797,7 +795,7 @@ void TreeView::HelperAdjustScrollX(HWND hWnd, SCROLLINFO& scrollInfo, RECT& tree
 // The vertical scrolling range is defined by 
 // (bitmap_height) - (client_height). The current vertical 
 // scroll value remains within the vertical scrolling range. 
-void TreeView::HelperAdjustScrollY(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
+void TreeView1::HelperAdjustScrollY(HWND hWnd, SCROLLINFO& scrollInfo, RECT& treeDimension,
 	int yNewSize, int& yMaxScroll, int& yMinScroll, int& yCurrentScroll)
 {
 	int tempSize = treeDimension.bottom - treeDimension.top;     // added
@@ -812,7 +810,7 @@ void TreeView::HelperAdjustScrollY(HWND hWnd, SCROLLINFO& scrollInfo, RECT& tree
 	SetScrollInfo(hWnd, SB_VERT, &scrollInfo, TRUE);
 }
 // Helper for make horizontal scrolling by given signed offset.
-void TreeView::HelperMakeScrollX(HWND hWnd, SCROLLINFO& scrollInfo,
+void TreeView1::HelperMakeScrollX(HWND hWnd, SCROLLINFO& scrollInfo,
 	int xMaxScroll, int& xCurrentScroll, BOOL& fScroll, int addX)
 {
 	int xNewPos = xCurrentScroll + addX;
@@ -836,7 +834,7 @@ void TreeView::HelperMakeScrollX(HWND hWnd, SCROLLINFO& scrollInfo,
 	}
 }
 // Helper for make vertical scrolling by given signed offset.
-void TreeView::HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
+void TreeView1::HelperMakeScrollY(HWND hWnd, SCROLLINFO& scrollInfo,
 	int yMaxScroll, int& yCurrentScroll, BOOL& fScroll, int addY)
 {
 	int yNewPos = yCurrentScroll + addY;
@@ -930,7 +928,7 @@ void TreeView::HelperOpenCloseMouseLightScrolled(HWND hWnd, PTREENODE p, HDC hdc
 }
 */
 // This part for support recursive tree levels and eliminate level count limits.
-void TreeView::HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize, BOOL forceUpdate,
+void TreeView1::HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize, BOOL forceUpdate,
 	int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll, int offsetY)
 {
 
@@ -976,7 +974,7 @@ void TreeView::HelperRecursiveMouseMove(PTREENODE p, HWND hWnd, HDC hdcScreenCom
 		}
 	}
 }
-RECT TreeView::HelperRecursiveMouseClick(PTREENODE p, POINT b, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize,
+RECT TreeView1::HelperRecursiveMouseClick(PTREENODE p, POINT b, HWND hWnd, HDC hdcScreenCompat, BOOL& fSize,
 	PTREENODE& openNode, BOOL fTab, BITMAP bmp, HFONT hFont,
 	int mouseX, int mouseY, int xCurrentScroll, int yCurrentScroll, int sel)
 {
@@ -1024,14 +1022,14 @@ RECT TreeView::HelperRecursiveMouseClick(PTREENODE p, POINT b, HWND hWnd, HDC hd
 // Returns tree array (xleft, ytop, xright, ybottom),
 // This parameters better calculate during draw, because depend on font size,
 // current active font settings actual during draw.
-RECT TreeView::HelperRecursiveDrawTree(PTREENODE p, POINT b, BOOL fTab, HDC hDC, HFONT hFont,
+RECT TreeView1::HelperRecursiveDrawTree(PTREENODE p, POINT b, BOOL fTab, HDC hDC, HFONT hFont,
 	int xCurrentScroll, int yCurrentScroll, int& dy)
 {
 	b.x -= xCurrentScroll;
 	b.y -= yCurrentScroll;
 	return HelperRecursiveDT(p, b, fTab, hDC, hFont, xCurrentScroll, yCurrentScroll, dy);
 }
-RECT TreeView::HelperRecursiveDT(PTREENODE p, POINT b, BOOL fTab, HDC hDC, HFONT hFont,
+RECT TreeView1::HelperRecursiveDT(PTREENODE p, POINT b, BOOL fTab, HDC hDC, HFONT hFont,
 	int xCurrentScroll, int yCurrentScroll, int& dy)
 {
 	RECT rDimension = { 0,0,0,0 };
@@ -1076,7 +1074,7 @@ RECT TreeView::HelperRecursiveDT(PTREENODE p, POINT b, BOOL fTab, HDC hDC, HFONT
 // 0 = increment, mark next node or no changes if last node currently marked,
 // 1 = decrement, mark previous node or no changes if first (root) node currently marked.
 // Returns pointer to selected node.
-PTREENODE TreeView::HelperRecursiveMarkNode(BOOL direction, int sel)
+PTREENODE TreeView1::HelperRecursiveMarkNode(BOOL direction, int sel)
 {
 	PTREENODE p1 = pModel->GetTrees()[sel];
 	PTREENODE pFound = NULL;
@@ -1101,7 +1099,7 @@ PTREENODE TreeView::HelperRecursiveMarkNode(BOOL direction, int sel)
 	}
 	return retPointer;
 }
-void TreeView::HelperRecursiveMN(PTREENODE& p1, PTREENODE& pFound, PTREENODE& pNext, PTREENODE& pBack, PTREENODE& pTemp)
+void TreeView1::HelperRecursiveMN(PTREENODE& p1, PTREENODE& pFound, PTREENODE& pNext, PTREENODE& pBack, PTREENODE& pTemp)
 {
 	if (p1)
 	{
@@ -1136,16 +1134,15 @@ void TreeView::HelperRecursiveMN(PTREENODE& p1, PTREENODE& pFound, PTREENODE& pN
 		}
 	}
 }
-
-void TreeView::ClearInvalidation()
+void TreeView1::ClearInvalidation()
 {
 	invalidationRequest = false;
 }
-void TreeView::SetInvalidation()
+void TreeView1::SetInvalidation()
 {
 	invalidationRequest = true;
 }
-void TreeView::MakeInvalidation(HWND hWnd)
+void TreeView1::MakeInvalidation(HWND hWnd)
 {
 	if (invalidationRequest)
 	{
@@ -1153,10 +1150,35 @@ void TreeView::MakeInvalidation(HWND hWnd)
 		invalidationRequest = false;
 	}
 }
+// Support tool bar.
+HWND TreeView1::InitToolBar(HWND hWnd)
+{
+	HWND hToolBar;
+	int btnID[NUM_BUTTONS] = { ID_TB_DEVICES, ID_TB_RESOURCES, ID_SEP, ID_TB_ABOUT, ID_TB_EXIT };
+	int btnStyle[NUM_BUTTONS] = { TBSTYLE_CHECKGROUP, TBSTYLE_CHECKGROUP, TBSTYLE_SEP, TBSTYLE_BUTTON, TBSTYLE_BUTTON };
+	TBBUTTON tbb[NUM_BUTTONS];
+	memset(tbb, 0, sizeof(tbb));
+
+	for (int i = 0; i < NUM_BUTTONS; ++i)
+	{
+		if (btnID[i] == ID_SEP)
+			tbb[i].iBitmap = SEPARATOR_WIDTH;
+		else  tbb[i].iBitmap = i;
+
+		tbb[i].idCommand = btnID[i];
+		tbb[i].fsState = TBSTATE_ENABLED;
+		tbb[i].fsStyle = btnStyle[i];
+	}
+
+	hToolBar = CreateToolbarEx(hWnd,
+		WS_CHILD | WS_VISIBLE | WS_BORDER | TBSTYLE_TOOLTIPS,
+		ID_TOOLBAR, NUM_BUTTONS, GetModuleHandle(NULL), IDR_TOOLBAR,
+		tbb, NUM_BUTTONS, 0, 0, 0, 0, sizeof(TBBUTTON));
+	return hToolBar;
+}
 
 // Storage for model class.
-TreeModel* TreeView::pModel = NULL;
-
+TreeModel* TreeView1::pModel = NULL;
 // Support deferred screen invalidation method for prevent blinking.
 // Note partial invalidation requests (if LPRECT not NULL) not deferred.
-BOOL TreeView::invalidationRequest = false;
+BOOL TreeView1::invalidationRequest = false;

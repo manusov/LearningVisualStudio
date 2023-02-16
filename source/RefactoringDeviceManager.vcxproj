@@ -148,34 +148,26 @@
   <ItemGroup>
     <ClCompile Include="DialogueAbout.cpp" />
     <ClCompile Include="Enumerator.cpp" />
-    <ClCompile Include="EnumRes.cpp" />
     <ClCompile Include="KWnd.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="StatusBar.cpp" />
-    <ClCompile Include="ToolBar.cpp" />
     <ClCompile Include="TreeController.cpp" />
-    <ClCompile Include="TreeControllerExt.cpp" />
     <ClCompile Include="TreeControllerSys.cpp" />
     <ClCompile Include="TreeModel.cpp" />
-    <ClCompile Include="TreeView.cpp" />
-    <ClCompile Include="TreeViewDebug.cpp" />
+    <ClCompile Include="TreeView1.cpp" />
+    <ClCompile Include="TreeView2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DialogueAbout.h" />
     <ClInclude Include="Enumerator.h" />
-    <ClInclude Include="EnumRes.h" />
     <ClInclude Include="Global.h" />
     <ClInclude Include="KWnd.h" />
     <ClInclude Include="Title.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="StatusBar.h" />
-    <ClInclude Include="ToolBar.h" />
     <ClInclude Include="TreeController.h" />
-    <ClInclude Include="TreeControllerExt.h" />
     <ClInclude Include="TreeControllerSys.h" />
     <ClInclude Include="TreeModel.h" />
-    <ClInclude Include="TreeView.h" />
-    <ClInclude Include="TreeViewDebug.h" />
+    <ClInclude Include="TreeView1.h" />
+    <ClInclude Include="TreeView2.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="RefactoringDeviceManager.rc" />

@@ -16,7 +16,7 @@ class TreeModel
 {
 public:
 	TreeModel();
-	~TreeModel();
+	virtual ~TreeModel();
 	// Service functions for tree builder.
 	UINT GetIconIdByIndex(int);
 	HICON GetIconHandleByIndex(int);

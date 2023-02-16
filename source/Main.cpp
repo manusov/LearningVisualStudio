@@ -40,8 +40,8 @@ http://ru.softoware.org/apps/download-open-icon-library-for-windows.html
 https://sourceforge.net/projects/openiconlibrary/
 http://www.sibcode.com/junior-icon-editor/
 
-TODO FIXED.
-
+TODO (DONE).
+------------
 1)+  Mouse move tracking when _NEW_GUI (at Main.h) enabled.
      Questions about offsetY.
      InvalidateRect must add toolY and subtract (toolY + statusY) instead rect = NULL?
@@ -70,35 +70,61 @@ TODO FIXED.
 5)+  Monospace font required, because address output better if formatted.
      FIXED.
 	 See "case WM_CREATE:", TreeView.cpp.
-	 
-TODO.
 
-6)   Address aliases and duplications, see descriptors flags for all descriptor types.
-	 Example: why 70h-70h and not declared port 71h?
-	 Plus extended CMOS/RTC ports 72h-73h?
+6)-  Resources map is empty when 32-bit application runs under Win10 x64, WoW64 scenario.
+	 THIS PROBLEM DOCUMENTED BY MICROSOFT:
+	 https://learn.microsoft.com/en-us/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_get_first_log_conf_ex
+	 https://learn.microsoft.com/en-us/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_get_first_log_conf
+	 From MSDN:
+	 "Note  Starting with Windows 8, CM_Get_First_Log_Conf_Ex returns CR_CALL_NOT_IMPLEMENTED
+	 when used in a Wow64 scenario. To request information about the hardware resources on a
+	 local machine it is necessary implement an architecture-native version of the application
+	 using the hardware resource APIs. For example: An AMD64 application for AMD64 systems."
+
+7)-  Address aliases and duplications, see descriptors flags for all descriptor types.
+	 Example (Z590 platform): 
+	 Why System Board Resources uses ports 70h-70h but port 71h is not declared?
+	 Why extended CMOS/RTC ports 72h-73h also not declared?
+	 THIS PROBLEM CAUSED BY NON-LEGACY CONFIGURATION?
+	 IO DESCRIPTOR 70H-70H CONTAINS ATTRIBUTES (IOD_DesFlags = 11h):
+	 #define fIOD_IO (0x1) // Port resource uses IO ports
+	 #define fIOD_16_BIT_DECODE (0x0010)
+	 By Windows 10 device manager results at Z590 platform:
+	 CMOS/RTC device missing,
+	 port 70h declared-used, range 71h-7Fh not declared,
+	 but range 0000h-0CF7h used by "PCI Express Root Complex".
+	 Physically, ports 70h and 71h accessible by RWEverything indexed I/O access.
+	 RWEverything RTC/CMOS registers dump works.
 	 See "DumpDeviceResourcesOfType", EnumRes.cpp.
-	 RAM, ROM, PREFETCHABLE AND OTHER ATTRIBUTES CAN BE USED LATER.
+	 See also:
+	 https://learn.microsoft.com/en-us/windows-hardware/drivers/bringup/acpi-defined-devices
+     RAM, ROM, PREFETCHABLE AND OTHER ATTRIBUTES CAN BE USED LATER.
 
-7)   Resources map empty if 32-bit application runs under Win10 x64.
-
+TODO.
+-----
 8)   Scroll bar below status bar, required swap, use SB_CTL instead SB_HORZ, SB_VERT?
      Fix this bug when refactoring by build class TreeViewDebug?
+	 https://learn.microsoft.com/en-us/windows/win32/controls/create-scroll-bars
+     https://learn.microsoft.com/ru-ru/windows/win32/controls/scroll-bars
+     https://learn.microsoft.com/ru-ru/windows/win32/api/winuser/nf-winuser-createwindowexa
+     https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowa
+     https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa
+
 ---------------------------------------------------------------------------------------- */
 
 #include <windows.h>
 #include "KWnd.h"
-#include "TreeView.h"
-#include "TreeViewDebug.h"
+#include "TreeView1.h"
+#include "TreeView2.h"
 #include "TreeModel.h"
 #include "TreeController.h"
-#include "TreeControllerExt.h"
 #include "TreeControllerSys.h"
 #include "resource.h"
 #include "Global.h"
 #include "Title.h"
 
 TreeModel* pModel = NULL;
-TreeView* pView = NULL;
+TreeView1* pView = NULL;
 TreeController* pController = NULL;
 PTREENODE trees[2];
 
@@ -119,18 +145,16 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		// Initialize application and system context.
 		pModel = new TreeModel();
 
-#ifdef _NEW_GUI
-		pView = new TreeViewDebug();
+#ifdef _GUI_V2
+#define GUI_START_OPTION  (WS_OVERLAPPEDWINDOW)
+		pView = new TreeView2();
 #else
-		pView = new TreeView();
+#define GUI_START_OPTION  (WS_OVERLAPPEDWINDOW | WS_HSCROLL | WS_VSCROLL)
+		pView = new TreeView1();
 #endif
 
 #ifdef _EMULATED_MODE
-#ifdef _EXT_EMULATION
-		pController = new TreeControllerExt();
-#else
 		pController = new TreeController();
-#endif
 #else
 		pController = new TreeControllerSys();
 #endif
@@ -158,9 +182,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 					KWnd mainWnd((LPCSTR)buildName, hInstance, nCmdShow,
 						TransitWndProc,
 						MAKEINTRESOURCE(IDR_MAIN_MENU),
-						590, 280, 800, 640,
+						640, 240, 600, 650,
 						CS_HREDRAW | CS_VREDRAW,
-						WS_OVERLAPPEDWINDOW | WS_HSCROLL | WS_VSCROLL,
+						GUI_START_OPTION,
 						NULL);
 					// Handling user events
 					MSG msg;

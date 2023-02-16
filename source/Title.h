@@ -9,17 +9,17 @@ Application title strings definitions.
 // Select emulated or system scan mode: uncomment this for debug.
 // Emulated mode means use constant emulated system configuration info
 // WITHOUT get system information.
+// Two lists (device list view or resource map view) contains
+// different tree levels count if emulated mode used.
 // #define _EMULATED_MODE
 
-// Select extended emulated mode, with improved nodes nesting level.
-// Enable both _EMULATED_MODE, _EXT_EMULATION for extended mode.
-// #define _EXT_EMULATION
+// Select GUI implementation version: uncomment this for v2.
+// v1 use vertical and horizontal scroll bars as window properties.
+// v2 use vertical and horizontal scroll bars as separate elements.
+// v2 is UNDER CONSTRUCTION.
+#define _GUI_V2
 
-// Enable Tool Bar and Status Bar GUI elements, for debug it.
-// Under construction.
-   #define _NEW_GUI
-
-#define BUILD_VERSION  "0.11.1.0"
+#define BUILD_VERSION  "0.12.2.0"
 #define BUILD_NAME_MAX 160
 
 #if _WIN64

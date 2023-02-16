@@ -14,6 +14,9 @@ TODO. Make this as class.
 #include "resource.h"
 #include "Title.h"
 
+// Note this parameters for elements inside "About" window.
+// For change "About" window position relative main window use resource editor.
+
 #define ABOUT_FONT_HEIGHT    16
 #define ABOUT_YBASE1         38
 #define ABOUT_YBASE2         100
