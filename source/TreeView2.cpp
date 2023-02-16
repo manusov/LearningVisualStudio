@@ -160,11 +160,27 @@ LRESULT CALLBACK TreeView2::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 
 	case WM_PAINT:
 	{
-		BeginPaint(hWnd, &ps);  // Open paint context.
+		// Open paint context.
+		BeginPaint(hWnd, &ps);
 		// Paint bufferred copy.
-		BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right, ps.rcPaint.bottom - toolY - statusY - sbHeight,
-			hdcScreenCompat, 0, 0, SRCCOPY);
-		EndPaint(hWnd, &ps);    // Close paint context.
+		// Logic for prevent status bar blinking and correct revisual selections when mouse cursor moved.
+		RECT r;
+		GetClientRect(hWnd, &r);
+		int dy1 = r.bottom - r.top;
+		int dy2 = ps.rcPaint.bottom;
+		if (dy1 == dy2)
+		{   // This nranch for repaint all window
+			BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right, ps.rcPaint.bottom - toolY - statusY - sbHeight,
+				hdcScreenCompat, 0, 0, SRCCOPY);
+		}
+		else
+		{   // This branch for repaint part of window, for example selections area near mouse cursor move.
+			BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right, ps.rcPaint.bottom,
+				hdcScreenCompat, 0, 0, SRCCOPY);
+
+		}
+		// Close paint context.
+		EndPaint(hWnd, &ps);
 	}
 	break;
 

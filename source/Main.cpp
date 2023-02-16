@@ -100,9 +100,7 @@ TODO (DONE).
 	 https://learn.microsoft.com/en-us/windows-hardware/drivers/bringup/acpi-defined-devices
      RAM, ROM, PREFETCHABLE AND OTHER ATTRIBUTES CAN BE USED LATER.
 
-TODO.
------
-8)   Scroll bar below status bar, required swap, use SB_CTL instead SB_HORZ, SB_VERT?
+8)+  Scroll bar below status bar, required swap, use SB_CTL instead SB_HORZ, SB_VERT?
      Fix this bug when refactoring by build class TreeViewDebug?
 	 https://learn.microsoft.com/en-us/windows/win32/controls/create-scroll-bars
      https://learn.microsoft.com/ru-ru/windows/win32/controls/scroll-bars

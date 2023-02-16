@@ -19,7 +19,7 @@ Application title strings definitions.
 // v2 is UNDER CONSTRUCTION.
 #define _GUI_V2
 
-#define BUILD_VERSION  "0.12.2.0"
+#define BUILD_VERSION  "0.12.3.0"
 #define BUILD_NAME_MAX 160
 
 #if _WIN64
