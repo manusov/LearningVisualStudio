@@ -108,6 +108,15 @@ TODO (DONE).
      https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowa
      https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa
 
+9)+  Bug if tree size reduced when node closed and this make scrolling not required,
+	 if this situation occurred when scroll offset > 0.
+	 
+TODO.
+------
+10) Bugs with items selection by keyboard.
+11) Refactoring to model: ManageResources.cpp, ManageDLL.cpp, ManageKMD.cpp.
+12) Refactoring required: model, View, Controller paradigm now incorrectly used.
+
 ---------------------------------------------------------------------------------------- */
 
 #include <windows.h>

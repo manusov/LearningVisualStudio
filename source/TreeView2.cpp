@@ -169,7 +169,7 @@ LRESULT CALLBACK TreeView2::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		int dy1 = r.bottom - r.top;
 		int dy2 = ps.rcPaint.bottom;
 		if (dy1 == dy2)
-		{   // This nranch for repaint all window
+		{   // This branch for repaint all window
 			BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right, ps.rcPaint.bottom - toolY - statusY - sbHeight,
 				hdcScreenCompat, 0, 0, SRCCOPY);
 		}
@@ -256,6 +256,9 @@ LRESULT CALLBACK TreeView2::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		RECT r = { 0,0,0,0 };
 		if (GetClientRect(hWnd, &r))
 		{
+			int backXcurrentScroll = xCurrentScroll;
+			int backYcurrentScroll = yCurrentScroll;
+			
 			int xNewSize = r.right - r.left - sbWidth;
 			int yNewSize = r.bottom - r.top - toolY - statusY - sbHeight;
 			// Construction from original MSDN source, inspect it.
@@ -269,6 +272,14 @@ LRESULT CALLBACK TreeView2::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			// (tree_height) - (client_height). The current vertical 
 			// scroll value remains within the vertical scrolling range. 
 			HelperAdjustScrollY(hScrollBarV, si, treeDimension, yNewSize, yMaxScroll, yMinScroll, yCurrentScroll);
+
+			if ((backXcurrentScroll != xCurrentScroll) || (backYcurrentScroll != yCurrentScroll))
+			{
+				BitBlt(hdcScreenCompat, 0, 0, bmp.bmWidth, bmp.bmHeight, NULL, 0, 0, PATCOPY);  // This for blank background
+				int dy = 0;
+				treeDimension = HelperRecursiveDrawTree(pModel->GetTrees()[selector], pModel->GetBase(), fTab, hdcScreenCompat, hFont,
+					xCurrentScroll, yCurrentScroll, dy);
+			}
 		}
 
 		// Restore Open/Close icon lighting by mouse cursor after node clicked.
@@ -469,12 +480,23 @@ LRESULT CALLBACK TreeView2::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 				RECT r = { 0,0,0,0 };
 				if (GetClientRect(hWnd, &r))
 				{
+					int backXcurrentScroll = xCurrentScroll;
+					int backYcurrentScroll = yCurrentScroll;
+
 					int xNewSize = r.right - r.left;
 					int yNewSize = r.bottom - r.top;
 					if (fBlt)
 						fSize = TRUE;
 					HelperAdjustScrollX(hScrollBarH, si, treeDimension, xNewSize, xMaxScroll, xMinScroll, xCurrentScroll);
 					HelperAdjustScrollY(hScrollBarV, si, treeDimension, yNewSize, yMaxScroll, yMinScroll, yCurrentScroll);
+
+					if ((backXcurrentScroll != xCurrentScroll) || (backYcurrentScroll != yCurrentScroll))
+					{
+						BitBlt(hdcScreenCompat, 0, 0, bmp.bmWidth, bmp.bmHeight, NULL, 0, 0, PATCOPY);  // This for blank background
+						int dy = 0;
+						treeDimension = HelperRecursiveDrawTree(pModel->GetTrees()[selector], pModel->GetBase(), fTab, hdcScreenCompat, hFont,
+							xCurrentScroll, yCurrentScroll, dy);
+					}
 				}
 			}
 			break;
