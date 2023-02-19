@@ -22,6 +22,7 @@ public:
     virtual ~TreeView2() override;
     // Window callback procedure for device manager window.
     virtual LRESULT CALLBACK AppViewer(HWND, UINT, WPARAM, LPARAM) override;
+protected:
 	// Helper for adjust horizontal scrolling parameters.
     // The horizontal scrolling range is defined by 
     // (bitmap_width) - (client_width). The current horizontal 

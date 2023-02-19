@@ -6,7 +6,8 @@ Main source file (Head Block).
 
 Project context and settings:
 
-  1) Add resources for application icon and tree nodes icons.
+  1) Add resources for application icon and tree nodes icons,
+     main menu, tool bar, dialogue(s).
   2) Required differentiation application icon for ia32 and x64,
      both for Debug and Release,
      Build events \ Event before build \ command line:
@@ -107,15 +108,31 @@ TODO (DONE).
      https://learn.microsoft.com/ru-ru/windows/win32/api/winuser/nf-winuser-createwindowexa
      https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowa
      https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa
+	 FIXED. 
+	 Window callback procedure redesigned, old is TreeView1.cpp, new is TreeView2.cpp.
 
 9)+  Bug if tree size reduced when node closed and this make scrolling not required,
-	 if this situation occurred when scroll offset > 0.
+     or change current scroll offset. Problem if this situation occurred when
+	 scroll offset > 0.
+	 FIXED.
+	 See TreeView2.cpp. Tree redraw second time if scroll offset changed when tree
+	 redraw first time.
 	 
 TODO.
 ------
-10) Bugs with items selection by keyboard.
-11) Refactoring to model: ManageResources.cpp, ManageDLL.cpp, ManageKMD.cpp.
-12) Refactoring required: model, View, Controller paradigm now incorrectly used.
+10) Bugs with items selection by keyboard, selected item out of visible area when
+    move by cursor up, cursor down keys.
+
+11) Refactoring required: Model, View, Controller paradigm now incorrectly used.
+    Refactoring to files set:
+      Main.cpp, MainGUI.cpp, 
+	  Title.h, Global.h (or Global.h only include title data), 
+	  ManageResources.cpp, ManageDLL.cpp, ManageKMD.cpp,
+	  EnumConst.cpp, EnumWin.cpp, ... add new enumerators.
+    Can copy work directory and change files step-by-step, without initializing
+	new project. Create new files and delete old unused files.
+	Old = source_v0_12_5_0.
+	New = source_v0_13_X_X.
 
 ---------------------------------------------------------------------------------------- */
 

@@ -170,7 +170,7 @@ LRESULT CALLBACK TreeView2::AppViewer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		int dy2 = ps.rcPaint.bottom;
 		if (dy1 == dy2)
 		{   // This branch for repaint all window
-			BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right, ps.rcPaint.bottom - toolY - statusY - sbHeight,
+			BitBlt(ps.hdc, 0, toolY, ps.rcPaint.right - sbWidth, ps.rcPaint.bottom - toolY - statusY - sbHeight,
 				hdcScreenCompat, 0, 0, SRCCOPY);
 		}
 		else
