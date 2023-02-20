@@ -17,7 +17,7 @@ include application title strings definitions.
 // different tree levels count if emulated mode used.
 // #define _EMULATED_MODE
 
-#define BUILD_VERSION  "0.13.0.0"
+#define BUILD_VERSION  "0.13.0.2"
 #define BUILD_NAME_MAX 160
 
 #if _WIN64

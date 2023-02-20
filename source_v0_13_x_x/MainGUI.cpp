@@ -69,7 +69,7 @@ MainGUI::MainGUI(HINSTANCE hInst, int cmdShow, ManageResources* pMr)
 
 	CHAR buildName[BUILD_NAME_MAX];
 	_snprintf_s(buildName, 
-		BUILD_NAME_MAX, _TRUNCATE, "%s %s%s %s %s",
+		BUILD_NAME_MAX, _TRUNCATE, "%s %s%s%s %s",
 		ABOUT_TEXT_1, ABOUT_TEXT_2_1, ABOUT_TEXT_2_2, ABOUT_TEXT_2_3, ABOUT_TEXT_2_4);
 
 	char szClassName[] = "KWndClass";
@@ -274,8 +274,9 @@ LRESULT CALLBACK MainGUI::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		// instead acroll bars as window properties.
 		sbHeight = SCROLLBAR_HEIGHT;
 		sbWidth = SCROLLBAR_WIDTH;
-		hScrollBarH = CreateAHorizontalScrollBar(hWnd, sbHeight, statusY);
-		hScrollBarV = CreateAVerticalScrollBar(hWnd, sbWidth, toolY, sbHeight + statusY);
+		// Note scroll bars sizes corrected dynamically at WM_SIZE message handler.
+		hScrollBarH = CreateAHorizontalScrollBar(hWnd, sbHeight, statusY, sbWidth);
+		hScrollBarV = CreateAVerticalScrollBar(hWnd, sbWidth, toolY, statusY);
 	}
 	break;
 
@@ -344,7 +345,7 @@ LRESULT CALLBACK MainGUI::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			if (hScrollBarH)
 			{
 				SetWindowPos(hScrollBarH, NULL,
-					r.left, r.bottom - sbHeight - statusY, r.right, sbHeight,
+					r.left, r.bottom - sbHeight - statusY, r.right - sbWidth, sbHeight,
 					SWP_SHOWWINDOW);
 			}
 			if (hScrollBarV)
@@ -1230,9 +1231,10 @@ HWND MainGUI::InitToolBar(HWND hWnd)
 //   hwndParent = handle to the parent window.
 //   sbHeight   = height, in pixels, of the scroll bar.
 //   downY      = size reserved below scroll bar for status bar.
+//   rightY     = size reserved right scroll bar for vertical scroll bar
 // Returns:
 //   The handle to the scroll bar.
-HWND MainGUI::CreateAHorizontalScrollBar(HWND hwndParent, int sbHeight, int downY)
+HWND MainGUI::CreateAHorizontalScrollBar(HWND hwndParent, int sbHeight, int downY, int rightY)
 {
 	RECT rect;
 	// Get the dimensions of the parent window's client area;
@@ -1247,7 +1249,7 @@ HWND MainGUI::CreateAHorizontalScrollBar(HWND hwndParent, int sbHeight, int down
 		| SBS_HORZ,                      // horizontal scroll bar style 
 		rect.left,                       // horizontal position 
 		rect.bottom - sbHeight - downY,  // vertical position 
-		rect.right,                      // width of the scroll bar 
+		rect.right - rightY,             // width of the scroll bar 
 		sbHeight,                        // height of the scroll bar
 		hwndParent,                      // handle to main window 
 		(HMENU)NULL,                     // no menu 
@@ -1445,7 +1447,7 @@ INT_PTR MainGUI::AboutDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 											_snprintf_s(buffer, BUILD_NAME_MAX, _TRUNCATE, "%s", ABOUT_TEXT_1);
 											break;
 										case 1:
-											_snprintf_s(buffer, BUILD_NAME_MAX, _TRUNCATE, "%s%s %s %s",
+											_snprintf_s(buffer, BUILD_NAME_MAX, _TRUNCATE, "%s%s%s %s",
 												ABOUT_TEXT_2_1, ABOUT_TEXT_2_2, ABOUT_TEXT_2_3, ABOUT_TEXT_2_4);
 											break;
 										case 2:

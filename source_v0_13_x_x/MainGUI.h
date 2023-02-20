@@ -144,7 +144,7 @@ private:
 	static void MakeInvalidation(HWND hWnd);
 	// Support tool bar.
 	static HWND InitToolBar(HWND hWnd);
-	static HWND CreateAHorizontalScrollBar(HWND hwndParent, int sbHeight, int downY);
+	static HWND CreateAHorizontalScrollBar(HWND hwndParent, int sbHeight, int downY, int rightY);
 	static HWND CreateAVerticalScrollBar(HWND hwndParent, int sbWidth, int upY, int downY);
 	// Support "About" window.
 	static INT_PTR AboutDlgProc(HWND, UINT, WPARAM, LPARAM);

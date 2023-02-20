@@ -129,10 +129,38 @@ TODO (DONE).
 	 Old = source_v0_12_5_0.
 	 New = source_v0_13_X_X.
 
+11)+ Why replace:
+     "MainGUI(hInstance, nCmdShow, pMr)"
+	 to
+	 "MainGUI(hInstance, nCmdShow, NULL)"
+	 do not cause exception at "pMr->procedureName(...)" inside MainGUI class?
+	 CAUSE:
+	 Class pointer really used as table base pointer for virtual methods,
+	 for non-virtual methods it only identify class for compiller.
+	 Proof: make "pEnum = NULL" for faults demo.
+
 TODO.
 ------
-11) Bugs with items selection by keyboard, selected item out of visible area when
+12) Vertical and horizontal scroll bars buttons push can be not visualized,
+    scroll work, but button at scroll bar not pushed.
+
+13) Bugs with items selection by keyboard, selected item out of visible area when
 	move by cursor up, cursor down keys.
+
+14) Optimization required: reduce size of TREENODE structure, for example:
+    WORD iconId (16-bit) instead HICON iconHandle (32/64-bit).
+	But ID to Handle translation required for this variant.
+	Criterias [Compact structure] vs [Data ready for use].
+
+15) Optimization required: calculate visible part of tree, by vertical.
+    Skip draw operations for invisible parts.
+
+16)	Profiling required.
+	https://learn.microsoft.com/ru-ru/archive/msdn-magazine/2015/may/visual-studio-2015-analyze-performance-while-debugging-in-visual-studio-2015
+	Debug \ Windows \ Show diagnostics tool.
+	Measure time between breakpoints. Approx. 1 ms resolution. 
+	Use RDTSC instruction or precision timers for more accurrate measurements.
+	Note about compiler optimizations and "Debug" and "Release" mode differences.
 ---------------------------------------------------------------------------------------- */
 
 #include <windows.h>
