@@ -1,0 +1,4 @@
+Debug template v0.00.04. (Windows x64).
+Delta TSC=2466512162, MBPS=331597.1, dummy=10000000.000.
+
+OK.
