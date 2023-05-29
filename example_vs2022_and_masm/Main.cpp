@@ -19,8 +19,6 @@ https://programminghaven.home.blog/2020/02/16/setup-an-assembly-project-on-visua
 #include <thread>
 #include <vector>
 #include <iostream>
-//#include <fstream>
-//#include <iomanip>
 
 BOOL detectAvx512();
 int singleThreadScenario();
@@ -167,6 +165,7 @@ int multiThreadScenario()
 			std::cout << "TSC clock measurement failed." << std::endl;
 			exitCode = 2;
 		}
+		_aligned_free(ptr);
 	}
 	else
 	{

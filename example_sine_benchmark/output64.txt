@@ -1,0 +1,15 @@
+Debug template v0.00.03. (Windows x64).
+
+Performance counter : F = 10.0 MHz, T = 100.000 ns.
+Time stamp counter  : F = 2496.0 MHz, T = 0.401 ns.
+Single-thread asm x87 FSIN, nanoseconds = 26.341.
+Single-thread C++ math, nanoseconds = 4.666.
+Dummy sum = -3007.135.
+
+Performance counter : F = 10.0 MHz, T = 100.000 ns.
+Time stamp counter  : F = 2496.0 MHz, T = 0.401 ns.
+16-thread asm x87 FSIN, nanoseconds = 33.195.
+16-thread C++ math, nanoseconds = 9.177.
+Dummy sum = -48114.157.
+
+OK.
