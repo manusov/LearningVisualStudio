@@ -2,14 +2,16 @@ Debug template v0.00.03. (Windows x64).
 
 Performance counter : F = 10.0 MHz, T = 100.000 ns.
 Time stamp counter  : F = 2496.0 MHz, T = 0.401 ns.
-Single-thread asm x87 FSIN, nanoseconds = 26.341.
-Single-thread C++ math, nanoseconds = 4.666.
-Dummy sum = -3007.135.
+Single-thread asm x87 FSIN, nanoseconds = 26.463, mops = 37.789.
+Single-thread C++ math, nanoseconds = 4.778, mops = 209.272.
+Single-thread AVX512 intrinsics, nanoseconds per 8 numbers = 4.074, mops = 1963.616.
+Dummy sum = -3304.665.
 
 Performance counter : F = 10.0 MHz, T = 100.000 ns.
 Time stamp counter  : F = 2496.0 MHz, T = 0.401 ns.
-16-thread asm x87 FSIN, nanoseconds = 33.195.
-16-thread C++ math, nanoseconds = 9.177.
-Dummy sum = -48114.157.
+16-thread asm x87 FSIN, nanoseconds = 33.051, mops = 484.097.
+16-thread C++ math, nanoseconds = 9.199, mops = 1739.341.
+16-thread AVX512 intrinsics, nanoseconds per 8 numbers = 10.147, mops = 12614.944.
+Dummy sum = -52874.634.
 
 OK.

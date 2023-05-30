@@ -7,16 +7,19 @@ Realization of sine calculation benchmark functions class.
 extern "C" void __stdcall calcSine(void* ptr, DWORD64 count, DWORD64 repeats, DWORD64 & deltaTsc, double x);
 void threadFunctionAsm(void* ptr);
 void threadFunctionCpp(void* ptr);
+void threadFunctionAvx512(void* ptr);
+BOOL detectAvx512();
 
-constexpr DWORD64 COUNT = 4096;           // 4096 * 8 = 32KB, this means stable cache hits for processor with L1data=48KB.
-constexpr DWORD64 UNIT = 8;               // One data unit, double = 8 bytes.
-constexpr DWORD64 REPEATS = 10000;        // Repeats for measurement.
-constexpr DWORD64 PAGE = 4096;            // Optimal allocation at page bound.
+constexpr DWORD64 COUNT = 4096;      // 4096 * 8 = 32KB, this means stable cache hits for processor with L1data=48KB.
+constexpr DWORD64 UNIT = 8;          // One data unit, double = 8 bytes.
+constexpr DWORD64 REPEATS = 50000;   // Repeats for measurement.
+constexpr DWORD64 PAGE = 4096;       // Optimal allocation at page bound.
 constexpr double NUM = 0.001;
 
 Calc::Calc()
 {
 }
+
 int Calc::scenarioSingleThread(double& dummySum)
 {
 	char msg[APPCONST::MAX_TEXT_STRING];
@@ -47,7 +50,10 @@ int Calc::scenarioSingleThread(double& dummySum)
 			DWORD64 deltaTsc = 0;
 			calcSine(ptr, COUNT, REPEATS, deltaTsc, NUM);
 			double nanosecondsPerNumber = (1E9 * deltaTsc * tTsc) / (COUNT * REPEATS);
-			snprintf(msg, APPCONST::MAX_TEXT_STRING, "Single-thread asm x87 FSIN, nanoseconds = %.3f.\r\n", nanosecondsPerNumber);
+			double mops = (COUNT * REPEATS) / (deltaTsc * tTsc) / 1E6;
+			snprintf(msg, APPCONST::MAX_TEXT_STRING,
+				"Single-thread asm x87 FSIN, nanoseconds = %.3f, mops = %.3f.\r\n",
+				nanosecondsPerNumber, mops);
 			AppLib::writeColor(msg, APPCONST::TABLE_COLOR);
 			dummySum += sumHelper(reinterpret_cast<double*>(ptr), COUNT);
 
@@ -64,9 +70,36 @@ int Calc::scenarioSingleThread(double& dummySum)
 			}
 			deltaTsc = __rdtsc() - deltaTsc;
 			nanosecondsPerNumber = (1E9 * deltaTsc * tTsc) / (COUNT * REPEATS);
-			snprintf(msg, APPCONST::MAX_TEXT_STRING, "Single-thread C++ math, nanoseconds = %.3f.\r\n", nanosecondsPerNumber);
+			mops = (COUNT * REPEATS) / (deltaTsc * tTsc) / 1E6;
+			snprintf(msg, APPCONST::MAX_TEXT_STRING,
+				"Single-thread C++ math, nanoseconds = %.3f, mops = %.3f.\r\n",
+				nanosecondsPerNumber, mops);
 			AppLib::writeColor(msg, APPCONST::TABLE_COLOR);
 			dummySum += sumHelper(reinterpret_cast<double*>(ptr), COUNT);
+
+			if (detectAvx512())
+			{
+				deltaTsc = __rdtsc();
+				__m512d x  = {   NUM, 2*NUM, 3*NUM, 4*NUM, 5*NUM, 6*NUM, 7*NUM, 8*NUM };
+				__m512d dx = { 8*NUM, 8*NUM, 8*NUM, 8*NUM, 8*NUM, 8*NUM, 8*NUM, 8*NUM };
+				for (int j = 0; j < REPEATS; j++)
+				{
+					__m512d* p = reinterpret_cast<__m512d*>(ptr);
+					for (int i = 0; i < (COUNT / 8); i++)
+					{
+						*(p++) = _mm512_sin_pd(x);
+						x = _mm512_add_pd(x, dx);
+					}
+				}
+				deltaTsc = __rdtsc() - deltaTsc;
+				nanosecondsPerNumber = (1E9 * deltaTsc * tTsc) / (COUNT / 8 * REPEATS);
+				mops = (COUNT * REPEATS) / (deltaTsc * tTsc) / 1E6;
+				snprintf(msg, APPCONST::MAX_TEXT_STRING,
+					"Single-thread AVX512 intrinsics, nanoseconds per 8 numbers = %.3f, mops = %.3f.\r\n",
+					nanosecondsPerNumber, mops);
+				AppLib::writeColor(msg, APPCONST::TABLE_COLOR);
+				dummySum += sumHelper(reinterpret_cast<double*>(ptr), COUNT);
+			}
 		}
 		else
 		{
@@ -82,6 +115,7 @@ int Calc::scenarioSingleThread(double& dummySum)
 	}
 	return exitCode;
 }
+
 int Calc::scenarioMultiThread(double& dummySum)
 {
 	char msg[APPCONST::MAX_TEXT_STRING];
@@ -123,7 +157,10 @@ int Calc::scenarioMultiThread(double& dummySum)
 			}
 			deltaTsc = __rdtsc() - deltaTsc;
 			double nanosecondsPerNumber = (1E9 * deltaTsc * tTsc) / (COUNT * REPEATS);
-			snprintf(msg, APPCONST::MAX_TEXT_STRING, "%d-thread asm x87 FSIN, nanoseconds = %.3f.\r\n", (int)num_threads, nanosecondsPerNumber);
+			double mops = (COUNT * REPEATS * num_threads) / (deltaTsc * tTsc) / 1E6;
+			snprintf(msg, APPCONST::MAX_TEXT_STRING,
+				"%d-thread asm x87 FSIN, nanoseconds = %.3f, mops = %.3f.\r\n",
+				(int)num_threads, nanosecondsPerNumber, mops);
 			AppLib::writeColor(msg, APPCONST::TABLE_COLOR);
 			dummySum += sumHelper(reinterpret_cast<double*>(ptr), COUNT * num_threads);
 
@@ -140,9 +177,35 @@ int Calc::scenarioMultiThread(double& dummySum)
 			}
 			deltaTsc = __rdtsc() - deltaTsc;
 			nanosecondsPerNumber = (1E9 * deltaTsc * tTsc) / (COUNT * REPEATS);
-			snprintf(msg, APPCONST::MAX_TEXT_STRING, "%d-thread C++ math, nanoseconds = %.3f.\r\n", (int)num_threads, nanosecondsPerNumber);
+			mops = (COUNT * REPEATS * num_threads) / (deltaTsc * tTsc) / 1E6;
+			snprintf(msg, APPCONST::MAX_TEXT_STRING,
+				"%d-thread C++ math, nanoseconds = %.3f, mops = %.3f.\r\n",
+				(int)num_threads, nanosecondsPerNumber, mops);
 			AppLib::writeColor(msg, APPCONST::TABLE_COLOR);
 			dummySum += sumHelper(reinterpret_cast<double*>(ptr), COUNT * num_threads);
+
+			if (detectAvx512())
+			{
+				deltaTsc = __rdtsc();
+				std::vector<std::thread> threadsAvx512 = {};
+				for (size_t i = 0; i < num_threads; i++)
+				{
+					BYTE* threadPtr = reinterpret_cast<BYTE*>(ptr) + i * COUNT * UNIT;
+					threadsAvx512.push_back(std::thread(threadFunctionAvx512, threadPtr));  // Create and run N threads, N = hardware concurrency.
+				}
+				for (size_t i = 0; i < num_threads; ++i)
+				{
+					threadsAvx512[i].join();   // Wait for N threads.
+				}
+				deltaTsc = __rdtsc() - deltaTsc;
+				nanosecondsPerNumber = (1E9 * deltaTsc * tTsc) / (COUNT / 8 * REPEATS);
+				mops = (COUNT * REPEATS * num_threads) / (deltaTsc * tTsc) / 1E6;
+				snprintf(msg, APPCONST::MAX_TEXT_STRING,
+					"%d-thread AVX512 intrinsics, nanoseconds per 8 numbers = %.3f, mops = %.3f.\r\n",
+					(int)num_threads, nanosecondsPerNumber, mops);
+				AppLib::writeColor(msg, APPCONST::TABLE_COLOR);
+				dummySum += sumHelper(reinterpret_cast<double*>(ptr), COUNT * num_threads);
+			}
 		}
 		else
 		{
@@ -179,6 +242,21 @@ void threadFunctionCpp(void* ptr)
 	}
 }
 
+void threadFunctionAvx512(void* ptr)
+{
+	__m512d x = { NUM, 2 * NUM, 3 * NUM, 4 * NUM, 5 * NUM, 6 * NUM, 7 * NUM, 8 * NUM };
+	__m512d dx = { 8 * NUM, 8 * NUM, 8 * NUM, 8 * NUM, 8 * NUM, 8 * NUM, 8 * NUM, 8 * NUM };
+	for (int j = 0; j < REPEATS; j++)
+	{
+		__m512d* p = reinterpret_cast<__m512d*>(ptr);
+		for (int i = 0; i < (COUNT / 8); i++)
+		{
+			*(p++) = _mm512_sin_pd(x);
+			x = _mm512_add_pd(x, dx);
+		}
+	}
+}
+
 double Calc::sumHelper(double* p, size_t count)
 {
 	double sum = 0;
@@ -187,4 +265,31 @@ double Calc::sumHelper(double* p, size_t count)
 		sum += *(p++);
 	}
 	return sum;
+}
+
+BOOL detectAvx512()
+{
+	BOOL status = FALSE;
+	int regs[4];
+	__cpuid(regs, 0);
+	if ((regs[0]) > 7)
+	{
+		__cpuid(regs, 1);
+		constexpr int MASK_AVX256 = (1 << 27) | (1 << 28);
+		if ((regs[2] & MASK_AVX256) == MASK_AVX256)
+		{
+			__cpuidex(regs, 7, 0);
+			constexpr int MASK_AVX512 = 1 << 16;
+			if ((regs[1] & MASK_AVX512) == MASK_AVX512)
+			{
+				DWORD64 xcr0 = _xgetbv(0);
+				constexpr DWORD64 MASK_XCR0 = 0xE6;
+				if ((xcr0 & MASK_XCR0) == MASK_XCR0)
+				{
+					status = TRUE;
+				}
+			}
+		}
+	}
+	return status;
 }
