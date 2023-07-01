@@ -155,6 +155,7 @@
     <ClCompile Include="Task_20.cpp" />
     <ClCompile Include="Task_21.cpp" />
     <ClCompile Include="Task_22.cpp" />
+    <ClCompile Include="Task_23.cpp" />
     <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -183,6 +184,7 @@
     <ClInclude Include="Task_20.h" />
     <ClInclude Include="Task_21.h" />
     <ClInclude Include="Task_22.h" />
+    <ClInclude Include="Task_23.h" />
     <ClInclude Include="Timer.h" />
   </ItemGroup>
   <ItemGroup>

@@ -77,6 +77,47 @@ int Task_20::execute(int argc, char** argv)
 	return exitCode;
 }
 
+void Task_20::hexPrint64x8(const __m64* data, int columns, WORD color)
+{
+	helperHexBytes(reinterpret_cast<const BYTE*>(data), 8, columns, color);
+}
+void Task_20::hexPrint64x16(const __m64* data, int columns, WORD color)
+{
+	helperHexWords(reinterpret_cast<const WORD*>(data), 4, columns, color);
+}
+void Task_20::hexPrint64x32(const __m64* data, int columns, WORD color)
+{
+	helperHexDwords(reinterpret_cast<const DWORD*>(data), 2, columns, color);
+}
+void Task_20::hexPrint64x64(const __m64* data, int columns, WORD color)
+{
+	helperHexQwords(reinterpret_cast<const DWORD64*>(data), 1, columns, color);
+}
+void Task_20::decimalPrint64x8(const __m64* data, int columns, WORD color)
+{
+	helperDecimalBytes(reinterpret_cast<const BYTE*>(data), 8, columns, color);
+}
+void Task_20::decimalPrint64x16(const __m64* data, int columns, WORD color)
+{
+	helperDecimalWords(reinterpret_cast<const WORD*>(data), 4, columns, color);
+}
+void Task_20::decimalPrint64x32(const __m64* data, int columns, WORD color)
+{
+	helperDecimalDwords(reinterpret_cast<const DWORD*>(data), 2, columns, color);
+}
+void Task_20::decimalPrint64x64(const __m64* data, int columns, WORD color)
+{
+	helperDecimalQwords(reinterpret_cast<const DWORD64*>(data), 1, columns, color);
+}
+void Task_20::floatPrint64x32(const __m64* data, int columns, WORD color)
+{
+	helperFloat(reinterpret_cast<const float*>(data), 2, columns, color);
+}
+void Task_20::doublePrint64x64(const __m64* data, int columns, WORD color)
+{
+	helperDouble(reinterpret_cast<const double*>(data), 1, columns, color);
+}
+
 void Task_20::hexPrint128x8(const __m128i* data, int columns, WORD color)
 {
 	helperHexBytes(reinterpret_cast<const BYTE*>(data), 16, columns, color);

@@ -15,7 +15,7 @@ Header of application library helper class.
 namespace APPCONST
 {
 	// Application strings and report file name.
-	const char* const MSG_APPLICATION = "Debug template v0.00.10.";
+	const char* const MSG_APPLICATION = "Debug template v0.00.11.";
 	const char* const MSG_STARTING = "Starting...";
 	// Parameters depend on x64 or ia32 build.
 #if _WIN64

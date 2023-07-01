@@ -37,6 +37,17 @@ public:
     int execute(int argc, char** argv);
 
 protected:
+    void hexPrint64x8(const __m64* data, int columns = 16, WORD color = APPCONST::VALUE_COLOR);
+    void hexPrint64x16(const __m64* data, int columns = 8, WORD color = APPCONST::VALUE_COLOR);
+    void hexPrint64x32(const __m64* data, int columns = 4, WORD color = APPCONST::VALUE_COLOR);
+    void hexPrint64x64(const __m64* data, int columns = 2, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrint64x8(const __m64* data, int columns = 16, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrint64x16(const __m64* data, int columns = 8, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrint64x32(const __m64* data, int columns = 4, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrint64x64(const __m64* data, int columns = 2, WORD color = APPCONST::VALUE_COLOR);
+    void floatPrint64x32(const __m64* data, int columns = 16, WORD color = APPCONST::VALUE_COLOR);
+    void doublePrint64x64(const __m64* data, int columns = 8, WORD color = APPCONST::VALUE_COLOR);
+
     void hexPrint128x8(const __m128i* data, int columns = 16, WORD color = APPCONST::VALUE_COLOR);
     void hexPrint128x16(const __m128i* data, int columns = 8, WORD color = APPCONST::VALUE_COLOR);
     void hexPrint128x32(const __m128i* data, int columns = 4, WORD color = APPCONST::VALUE_COLOR);

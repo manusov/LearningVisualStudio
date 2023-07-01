@@ -26,6 +26,7 @@ Main module.
 #include "Task_20.h"   // Context, data types, initialization, visualization for vector data and intrinsics. v2.
 #include "Task_21.h"   // Learn some intrinsics - miscellaneous.
 #include "Task_22.h"   // Learn some intrinsics - load.
+#include "Task_23.h"   // Learn some intrinsics - SSE.
 
 int main(int argc, char** argv)
 {
@@ -53,6 +54,7 @@ int main(int argc, char** argv)
 	// Task_20 task;
 	// Task_21 task;
 	// Task_22 task;
+	// Task_23 task;
 	//
 	return shell.execute(argc, argv, task);
 }
