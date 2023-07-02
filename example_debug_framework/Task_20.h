@@ -37,6 +37,17 @@ public:
     int execute(int argc, char** argv);
 
 protected:
+    void hexPrintByte(const BYTE* data, WORD color = APPCONST::VALUE_COLOR);
+    void hexPrintWord(const WORD* data, WORD color = APPCONST::VALUE_COLOR);
+    void hexPrintDword(const DWORD* data, WORD color = APPCONST::VALUE_COLOR);
+    void hexPrintQword(const DWORD64* data, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrintByte(const BYTE* data, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrintWord(const WORD* data, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrintDword(const DWORD* data, WORD color = APPCONST::VALUE_COLOR);
+    void decimalPrintQword(const DWORD64* data, WORD color = APPCONST::VALUE_COLOR);
+    void floatPrintDword(const float* data, WORD color = APPCONST::VALUE_COLOR);
+    void doublePrintQword(const double* data, WORD color = APPCONST::VALUE_COLOR);
+
     void hexPrint64x8(const __m64* data, int columns = 16, WORD color = APPCONST::VALUE_COLOR);
     void hexPrint64x16(const __m64* data, int columns = 8, WORD color = APPCONST::VALUE_COLOR);
     void hexPrint64x32(const __m64* data, int columns = 4, WORD color = APPCONST::VALUE_COLOR);

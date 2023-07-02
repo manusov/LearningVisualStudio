@@ -2,17 +2,24 @@
 Learn some intrinsics, selected from:
 https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html
 https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#ssetechs=SSE
+http://www.songho.ca/misc/sse/sse.html
 */
 
 #include "Task_23.h"
-#include <xmmintrin.h>
+// #include <xmmintrin.h>
 
 int Task_23::execute(int argc, char** argv)
 {
 	int exitCode = 0;
 	// char msg[APPCONST::MAX_TEXT_STRING];
 	AppLib::writeColor("\r\n[Context for vector data intrinsics - SSE.]\r\n\r\n", APPCONST::DUMP_ADDRESS_COLOR);
-
+/*
+	// check added functions
+	BYTE a = 117;
+	hexPrintByte(&a);
+	decimalPrintByte(&a, APPCONST::TABLE_COLOR);
+*/
+	
 /*
 	// __m128 _mm_add_ps (__m128 a, __m128 b)
 	// __m128 _mm_add_ss (__m128 a, __m128 b)
@@ -85,19 +92,7 @@ int Task_23::execute(int argc, char** argv)
 	hexPrint128x32(py2, 4, APPCONST::TABLE_COLOR);
 */
 /*
-	// __m128 _mm_unpackhi_ps (__m128 a, __m128 b)
-	// __m128 _mm_unpacklo_ps (__m128 a, __m128 b)
-	__m128 x1{ 1.1f, 2.2f, 3.3f, 4.4f };
-	__m128 x2{ 5.5f, 6.6f, 7.7f, 8.8f };
-	__m128 y1 = _mm_unpackhi_ps(x1, x2);
-	__m128 y2 = _mm_unpacklo_ps(x1, x2);
-	floatPrint128x32(&x1);
-	floatPrint128x32(&x2);
-	floatPrint128x32(&y1, 16, APPCONST::TABLE_COLOR);
-	floatPrint128x32(&y2, 16, APPCONST::TABLE_COLOR);
-*/
 	// void _MM_TRANSPOSE4_PS (__m128 row0, __m128 row1, __m128 row2, __m128 row3)
-
 	__m128 x1{  1.0f,  2.0f,  3.0f,  4.0f };
 	__m128 x2{  5.0f,  6.0f,  7.0f,  8.0f };
 	__m128 x3{  9.0f, 10.0f, 11.0f, 12.0f };
@@ -111,6 +106,72 @@ int Task_23::execute(int argc, char** argv)
 	floatPrint128x32(&x2, 16, APPCONST::TABLE_COLOR);
 	floatPrint128x32(&x3, 16, APPCONST::TABLE_COLOR);
 	floatPrint128x32(&x4, 16, APPCONST::TABLE_COLOR);
+*/
+/*
+	// __m128 _mm_unpackhi_ps (__m128 a, __m128 b)
+	// __m128 _mm_unpacklo_ps (__m128 a, __m128 b)
+	__m128 x1{ 1.1f, 2.2f, 3.3f, 4.4f };
+	__m128 x2{ 5.5f, 6.6f, 7.7f, 8.8f };
+	__m128 y1 = _mm_unpackhi_ps(x1, x2);
+	__m128 y2 = _mm_unpacklo_ps(x1, x2);
+	floatPrint128x32(&x1);
+	floatPrint128x32(&x2);
+	floatPrint128x32(&y1, 16, APPCONST::TABLE_COLOR);
+	floatPrint128x32(&y2, 16, APPCONST::TABLE_COLOR);
+*/
+/*
+	// __m128 _mm_shuffle_ps (__m128 a, __m128 b, unsigned int imm8)
+	__m128 x1{ 1.1f, 2.2f, 3.3f, 4.4f };
+	__m128 x2{ 5.5f, 6.6f, 7.7f, 8.8f };
+	__m128 y1 = _mm_shuffle_ps(x1, x2, 0x00);
+	__m128 y2 = _mm_shuffle_ps(x1, x2, 0x55);
+	__m128 y3 = _mm_shuffle_ps(x1, x2, 0xAA);
+	__m128 y4 = _mm_shuffle_ps(x1, x2, 0xFF);
+	__m128 y5 = _mm_shuffle_ps(x1, x2, 0x1B);
+	floatPrint128x32(&x1);
+	floatPrint128x32(&x2);
+	floatPrint128x32(&y1, 16, APPCONST::TABLE_COLOR);
+	floatPrint128x32(&y2, 16, APPCONST::TABLE_COLOR);
+	floatPrint128x32(&y3, 16, APPCONST::TABLE_COLOR);
+	floatPrint128x32(&y4, 16, APPCONST::TABLE_COLOR);
+	floatPrint128x32(&y5, 16, APPCONST::TABLE_COLOR);
+*/
+/*
+	{
+		// int _m_pextrw (__m64 a, int imm8) , this available in x86, not available in x64. Compiler (not CPU) restriction.
+		WORD x1[] = { 1111, 2222, 3333, 4444 };
+		__m64* px1 = reinterpret_cast<__m64*>(&x1);
+		int y1 = _m_pextrw(*px1, 0);
+		int y2 = _m_pextrw(*px1, 1);
+		int y3 = _m_pextrw(*px1, 2);
+		int y4 = _m_pextrw(*px1, 3);
+		DWORD* py1 = reinterpret_cast<DWORD*>(&y1);
+		DWORD* py2 = reinterpret_cast<DWORD*>(&y2);
+		DWORD* py3 = reinterpret_cast<DWORD*>(&y3);
+		DWORD* py4 = reinterpret_cast<DWORD*>(&y4);
+		decimalPrint64x16(px1);
+		decimalPrintDword(py1, APPCONST::TABLE_COLOR);
+		decimalPrintDword(py2, APPCONST::TABLE_COLOR);
+		decimalPrintDword(py3, APPCONST::TABLE_COLOR);
+		decimalPrintDword(py4, APPCONST::TABLE_COLOR);
+	}
+	AppLib::write("\r\n");
+	{
+		// __m64 _m_pinsrw (__m64 a, int i, int imm8) , this available in x86, not available in x64. Compiler (not CPU) restriction.
+		BYTE x1[] = { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, };
+		__m64* px1 = reinterpret_cast<__m64*>(&x1);
+		int i = 0x34;
+		__m64 y1 = _m_pinsrw(*px1, i, 0);
+		__m64 y2 = _m_pinsrw(*px1, i, 1);
+		__m64 y3 = _m_pinsrw(*px1, i, 2);
+		__m64 y4 = _m_pinsrw(*px1, i, 3);
+		hexPrint64x16(px1);
+		hexPrint64x16(&y1, 8, APPCONST::TABLE_COLOR);
+		hexPrint64x16(&y2, 8, APPCONST::TABLE_COLOR);
+		hexPrint64x16(&y3, 8, APPCONST::TABLE_COLOR);
+		hexPrint64x16(&y4, 8, APPCONST::TABLE_COLOR);
+	}
+*/
 
 
 

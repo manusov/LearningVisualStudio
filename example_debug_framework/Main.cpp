@@ -27,6 +27,8 @@ Main module.
 #include "Task_21.h"   // Learn some intrinsics - miscellaneous.
 #include "Task_22.h"   // Learn some intrinsics - load.
 #include "Task_23.h"   // Learn some intrinsics - SSE.
+#include "Task_24.h"   // Learn some intrinsics - AVX512 VBMI.
+#include "Task_25.h"   // Learn some intrinsics - AVX512 VBMI2.
 
 int main(int argc, char** argv)
 {
@@ -55,6 +57,8 @@ int main(int argc, char** argv)
 	// Task_21 task;
 	// Task_22 task;
 	// Task_23 task;
+	// Task_24 task;
+	// Task_25 task;
 	//
 	return shell.execute(argc, argv, task);
 }

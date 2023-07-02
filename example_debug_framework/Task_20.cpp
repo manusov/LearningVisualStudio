@@ -77,6 +77,47 @@ int Task_20::execute(int argc, char** argv)
 	return exitCode;
 }
 
+void Task_20::hexPrintByte(const BYTE* data, WORD color)
+{
+	helperHexBytes(reinterpret_cast<const BYTE*>(data), 1, 1, color);
+}
+void Task_20::hexPrintWord(const WORD* data, WORD color)
+{
+	helperHexWords(reinterpret_cast<const WORD*>(data), 1, 1, color);
+}
+void Task_20::hexPrintDword(const DWORD* data, WORD color)
+{
+	helperHexDwords(reinterpret_cast<const DWORD*>(data), 1, 1, color);
+}
+void Task_20::hexPrintQword(const DWORD64* data, WORD color)
+{
+	helperHexQwords(reinterpret_cast<const DWORD64*>(data), 1, 1, color);
+}
+void Task_20::decimalPrintByte(const BYTE* data, WORD color)
+{
+	helperDecimalBytes(reinterpret_cast<const BYTE*>(data), 1, 1, color);
+}
+void Task_20::decimalPrintWord(const WORD* data, WORD color)
+{
+	helperDecimalWords(reinterpret_cast<const WORD*>(data), 1, 1, color);
+}
+void Task_20::decimalPrintDword(const DWORD* data, WORD color)
+{
+	helperDecimalDwords(reinterpret_cast<const DWORD*>(data), 1, 1, color);
+}
+void Task_20::decimalPrintQword(const DWORD64* data, WORD color)
+{
+	helperDecimalQwords(reinterpret_cast<const DWORD64*>(data), 1, 1, color);
+}
+void Task_20::floatPrintDword(const float* data, WORD color)
+{
+	helperFloat(reinterpret_cast<const float*>(data), 1, 1, color);
+}
+void Task_20::doublePrintQword(const double* data, WORD color)
+{
+	helperDouble(reinterpret_cast<const double*>(data), 1, 1, color);
+}
+
 void Task_20::hexPrint64x8(const __m64* data, int columns, WORD color)
 {
 	helperHexBytes(reinterpret_cast<const BYTE*>(data), 8, columns, color);
