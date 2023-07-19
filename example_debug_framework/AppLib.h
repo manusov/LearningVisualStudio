@@ -15,7 +15,7 @@ Header of application library helper class.
 namespace APPCONST
 {
 	// Application strings and report file name.
-	const char* const MSG_APPLICATION = "Debug template v0.00.12.";
+	const char* const MSG_APPLICATION = "Debug template v0.00.13.";
 	const char* const MSG_STARTING = "Starting...";
 	// Parameters depend on x64 or ia32 build.
 #if _WIN64
@@ -42,6 +42,8 @@ namespace APPCONST
 	constexpr int DUMP_BYTES_PER_LINE = 16;
 	constexpr int DUMP_WIDTH = 80;
 	constexpr int TABLE_WIDTH = 80;
+	constexpr int PARM_WIDTH = 28;
+	constexpr int VALUE_WIDTH = 80;
 	constexpr size_t MAX_OUT_FILE_SIZE = 4 * 1024 * 1024;
 	// Constants used for print memory block size.
 	constexpr int KILO = 1024;

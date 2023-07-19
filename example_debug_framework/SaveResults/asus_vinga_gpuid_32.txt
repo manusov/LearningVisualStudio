@@ -178,7 +178,7 @@ Maximum memory frequency    7001.0 MHz
 OC memory frequency         7001.0 MHz
 Memory bandwidth            0.0 MBPS
 PCIe bandwidth              0.0 MBPS
-Temperature                 48.5 C
+Temperature                 51.8 C
 Fan RPM                     0 RPM
 [Performance capabilities]
 Maximum memory bandwidth    0.0 MBPS

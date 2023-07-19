@@ -4,6 +4,7 @@ Main module.
 */
 
 #include "Shell.h"
+
 #include "Task_01.h"   // Timers precision test.
 #include "Task_02.h"   // AVX512 read benchmark, single/multi thread. Optimized for L1=48K, change size if required.
 #include "Task_03.h"   // Sine calculation benchmark.
@@ -29,6 +30,8 @@ Main module.
 #include "Task_23.h"   // Learn some intrinsics - SSE.
 #include "Task_24.h"   // Learn some intrinsics - AVX512 VBMI.
 #include "Task_25.h"   // Learn some intrinsics - AVX512 VBMI2.
+
+#include "Task_50.h"   // GPU info.
 
 int main(int argc, char** argv)
 {
@@ -59,6 +62,8 @@ int main(int argc, char** argv)
 	// Task_23 task;
 	// Task_24 task;
 	// Task_25 task;
+	// 
+	// Task_50 task;  // GPU info
 	//
 	return shell.execute(argc, argv, task);
 }

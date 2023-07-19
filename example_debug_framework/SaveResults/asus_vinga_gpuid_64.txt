@@ -1,16 +1,16 @@
-Debug template v0.00.13. (Windows ia32).
-GPU Info v0.00.03 (ia32).
+Debug template v0.00.13. (Windows x64).
+GPU Info v0.00.03 (x64).
 [DirectX 9.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
+UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumdx.dll
 [DirectX 10.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
+UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumdx.dll
 [DirectX 11.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
+UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumdx.dll
 [DirectX 12.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
+UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumdx.dll
 [OpenGL info]
 OpenGL version              00001000h
-OpenGL file name            C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvoglv32.dll
+OpenGL file name            C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvoglv64.dll
 [Segment size]
 Dedicated system memory     0 Bytes
 Dedicated video memory      7.85 GB
@@ -178,7 +178,7 @@ Maximum memory frequency    7001.0 MHz
 OC memory frequency         7001.0 MHz
 Memory bandwidth            0.0 MBPS
 PCIe bandwidth              0.0 MBPS
-Temperature                 48.5 C
+Temperature                 52.2 C
 Fan RPM                     0 RPM
 [Performance capabilities]
 Maximum memory bandwidth    0.0 MBPS
