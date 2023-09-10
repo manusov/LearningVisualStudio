@@ -2,21 +2,21 @@
 ; dstpath    = f:\backup\
 filesize   = 64M
 blocksize  = 16M
-filecount  = 20
+filecount  = 5
+; repeats    = 3
 
 ; UNDER CONSTRUCTION OPTIONS.
-; repeats    = 1
 ; address    = mbps
 
 data       = zeroes
 nobuf      = 1
 writethr   = 1
 sequental  = 0
+; waitread   = 15000
+; waitwrite  = 5000
+; waitcopy   = 10000
 
 ; UNDER CONSTRUCTION OPTIONS.
-; waitread   = 0
-; waitwrite  = 0
-; waitcopy   = 0
 ; threads    = 1
 ; ht         = default
 ; largepages = 0

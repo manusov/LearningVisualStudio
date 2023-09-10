@@ -7,14 +7,22 @@ Special thanks for C++ lessons:
 https://ravesli.com/uroki-cpp/
 
 TODO.
-1) Default path must be empty.
-2) Verify files size.
-3) Close file group than measure integral time (?)
-4) Support measurement repeats and all other options.
-5) Errors handling, visual OS error code by existing helper.
-6) Check support RDRAND instruction by CPUID instruction.
-7) Support procedures: void resetBeforeParse(), void correctAfterParse().
-9) Compare with NIOBench.
+1)  + Redesign measurement and statistics tables (colors, sizes, layouts).
+2)  + Verify files size: compare calculated and sum of sizes returned by Read/Write WinAPI.
+3)  + Support measurement repeats.
+4)  + Default path must be empty.
+5)  + Check support RDRAND instruction by CPUID instruction. At procedure void correctAfterParse().
+6)  Support wait times options before read, write, copy.
+7)  Support procedures: void resetBeforeParse(), void correctAfterParse().
+8)  Error message and exit if wrong options (instead default scenario).
+9)  Errors handling, visual OS error code by existing helper. Restore state when return.
+10) Close file group than measure integral time (?)
+11) Extended verification by compare read data and write data.
+12) Wait key option: wait after actions.
+13) Report option: file and/or console.
+14) Support all other options.
+15) Re-verify all options settings support.
+16) Compare with NIOBench for some types of disks.
 
 */
 
@@ -25,6 +33,7 @@ TODO.
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include <intrin.h>
 #include <immintrin.h>
 
 #if _WIN64
@@ -110,6 +119,7 @@ typedef enum
     FILE_COPY_FAILED,
     FILE_READ_FAILED,
     FILE_DELETE_FAILED,
+    FILE_SIZE_MISMATCH
 }  STATUS_CODES;
 
 namespace APPCONST
@@ -117,7 +127,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance sample v0.01.02";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.03";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -139,8 +149,8 @@ namespace APPCONST
 	constexpr int MAX_TEXT_STRING = MAX_PATH;
 	constexpr int DUMP_BYTES_PER_LINE = 16;
 	constexpr int DUMP_WIDTH = 80;
-	constexpr int TABLE_WIDTH = 80;
-	constexpr int HALF_TABLE_WIDTH = 40;
+	constexpr int TABLE_WIDTH = 68;
+    constexpr int SMALL_TABLE_WIDTH = 31;
 	constexpr size_t MAX_IN_FILE_SIZE = 4 * 1024 * 1024;
 	constexpr size_t MAX_OUT_FILE_SIZE = 4 * 1024 * 1024;
 	constexpr size_t PATH_SIZE = 1024;
@@ -174,6 +184,7 @@ namespace APPCONST
     const DWORD64 RANDOM_MULTIPLIER = 0x00DEECE66D;
     const DWORD64 RANDOM_ADDEND = 0x0B;
 }
+
 // Command line parameters parse control.
 // Strings for command line options detect.
 const char* keysAddress[] = { "mbps", "onefilembps", "iops", nullptr };
@@ -196,15 +207,15 @@ const OPTION_ENTRY options[] = {
     { "filesize"        , nullptr         , &parms.optionFileSize    , MEMPARM } ,
     { "blocksize"       , nullptr         , &parms.optionBlockSize   , MEMPARM } ,
     { "filecount"       , nullptr         , &parms.optionFileCount   , INTPARM } ,
-//  { "repeats"         , nullptr         , &parms.optionRepeats     , INTPARM } ,
+    { "repeats"         , nullptr         , &parms.optionRepeats     , INTPARM } ,
 //  { "address"         , keysAddress     , &parms.optionAddress     , SELPARM } ,
     { "data"            , keysData        , &parms.optionData        , SELPARM } ,
     { "nobuf"           , nullptr         , &parms.optionNoBuf       , INTPARM } ,
     { "writethr"        , nullptr         , &parms.optionWriteThr    , INTPARM } ,
     { "sequental"       , nullptr         , &parms.optionSequental   , INTPARM } ,
-//  { "waitread"        , nullptr         , &parms.optionWaitRead    , INTPARM } ,
-//  { "waitwrite"       , nullptr         , &parms.optionWaitWrite   , INTPARM } ,
-//  { "waitcopy"        , nullptr         , &parms.optionWaitCopy    , INTPARM } ,
+    { "waitread"        , nullptr         , &parms.optionWaitRead    , INTPARM } ,
+    { "waitwrite"       , nullptr         , &parms.optionWaitWrite   , INTPARM } ,
+    { "waitcopy"        , nullptr         , &parms.optionWaitCopy    , INTPARM } ,
 //  { "threads"         , nullptr         , &parms.optionThreads     , INTPARM } ,
 //  { "ht"              , keysHt          , &parms.optionHt          , SELPARM } ,
 //  { "largepages"      , nullptr         , &parms.optionLargePages  , INTPARM } ,
@@ -238,7 +249,7 @@ void write(const char* string);
 void writeColor(const char* string, WORD color);
 void writeParmGroup(const char* string);
 void writeParmError(const char* string);
-void writeParmAndValue(const char* parmName, const char* parmValue, int nameWidth);
+void writeParmAndValue(const char* parmName, const char* parmValue, int nameWidth, WORD valueColor = APPCONST::VALUE_COLOR);
 void writeHexDump(byte* ptr, int size);
 void writeHexDumpUp();
 void writeLine(int count);
@@ -263,7 +274,8 @@ void colorHelper(WORD color);
 void colorRestoreHelper();
 void cellPrintHelper(char* buffer, size_t limit, size_t cell, size_t count);
 // Target operation-specific tasks.
-void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds);
+void waitTime(char* msg, DWORD milliseconds, const char* operationName);
+void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode);
 int runTask(COMMAND_LINE_PARMS* p);
 
 // Application entry point.
@@ -275,7 +287,6 @@ int main(int argc, char** argv)
     bool fileMode = true;
 	char msg[APPCONST::MAX_TEXT_STRING];
 	cout << APPCONST::MSG_STARTING << endl;
-
 	// Assign input and output files names, can override from command line.
 	const char* inName = APPCONST::DEFAULT_IN_NAME;
 	const char* outName = APPCONST::DEFAULT_OUT_NAME;
@@ -287,7 +298,6 @@ int main(int argc, char** argv)
 	{
 		outName = argv[2];
 	}
-
 	// Load input configuration file, override scenario options by loaded configuration.
 	resetBeforeParse();                                  // Set default options values.
 	BOOL loadStatus = FALSE;
@@ -339,8 +349,6 @@ int main(int argc, char** argv)
 	{
 		loadString1 = "Input file not found, default scenario used.";
 	}
-	correctAfterParse();    // Correct options values.
-
 	// Create output report buffer, initializing color console, start performance scenario.
 	char* outPtr = (char*)malloc(APPCONST::MAX_OUT_FILE_SIZE);
 	char* const backOutPtr = outPtr;
@@ -365,17 +373,17 @@ int main(int argc, char** argv)
 				writeColor(loadString2, color);
 				write("\r\n");
 			}
-			cout << endl;
-			writeOptionReport();
-			cout << endl;
-
-
+            write("\r\n");
+            writeOptionReport();    // Show options values.
+            write("\r\n");
+            correctAfterParse();    // Verify and correct (if required) options values.
+            // Get scenario options for mass storage performance test.
 			COMMAND_LINE_PARMS* pCommandLineParms = &parms;
 			int opStatus = 0;
-			// int localStatus = Task::RunTask(nullptr);
-			int localStatus = runTask(pCommandLineParms);    // Target operation.
-
-
+			// int localStatus = Task::RunTask(nullptr);    // Reserved alternative.
+            // Target operation: execute mass storage performance test.
+			int localStatus = runTask(pCommandLineParms);
+            // Interpreting status.
 			if (opStatus == 0)
 			{
 				snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nPerformance scenario OK.\r\n");
@@ -386,7 +394,6 @@ int main(int argc, char** argv)
 				snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nPerformance scenario FAILED (%d).\r\n", opStatus);
 				writeColor(msg, APPCONST::ERROR_COLOR);
 			}
-
 			// Save report buffer to output file, if file mode enabled.
 			if (fileMode)
 			{
@@ -438,11 +445,41 @@ int main(int argc, char** argv)
 void resetBeforeParse()                     // Reset options (structure with command line parameters values) to defaults.
 {
 	snprintf(optionStatusString, APPCONST::MAX_TEXT_STRING, "No data.");
-	// Reserved
+    COMMAND_LINE_PARMS* p = &parms;
+    strcpy(p->optionSrcPath, APPCONST::DEFAULT_PATH_SRC);
+    strcpy(p->optionDstPath, APPCONST::DEFAULT_PATH_DST);
+    p->optionFileCount = APPCONST::DEFAULT_FILE_COUNT;
+    p->optionFileSize = APPCONST::DEFAULT_FILE_SIZE;
+    p->optionBlockSize = APPCONST::DEFAULT_BLOCK_SIZE;
+    p->optionRepeats = APPCONST::DEFAULT_REPEATS;
+    p->optionData = APPCONST::DEFAULT_DATA_TYPE;
+    p->optionAddress = APPCONST::DEFAULT_ADDRESS_TYPE;
+    p->optionNoBuf = APPCONST::DEFAULT_FLAG_NO_BUFFERING;
+    p->optionWriteThr = APPCONST::DEFAULT_FLAG_WRITE_THROUGH;
+    p->optionSequental = APPCONST::DEFAULT_FLAG_SEQUENTIAL_SCAN;
+    p->optionWaitRead = APPCONST::DEFAULT_WAIT_READ;
+    p->optionWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
+    p->optionWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
 }
+#define RDRAND_MASK 0x40000000
 void correctAfterParse()                    // Verify options structure (reserved).
 {
-	// Reserved
+    COMMAND_LINE_PARMS* p = &parms;
+    if (p->optionData == HARD_RANDOM)
+    {   // If hardware random number generator selected by option, required check RDRAND instruction support.
+        int cpudata[4];
+        __cpuid(cpudata, 0);
+        if (cpudata[0] >= 1)
+        {
+            __cpuid(cpudata, 1);
+            if (!(cpudata[2] & RDRAND_MASK))
+            {
+                writeColor("RDRAND instruction not supported by CPU or locked. Software RNG used.\r\n", APPCONST::ERROR_COLOR);
+                p->optionData = SOFT_RANDOM;
+            }
+        }
+    }
+    // This place reserved for other checks.
 }
 BOOL parseOptions(char* p, size_t n)
 {
@@ -690,9 +727,8 @@ DWORD parseCommandLine(int argc, char** argv)
 }
 void writeOptionReport()
 {
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
-    writeColor(" Benchmark scenario options.\r\n", APPCONST::TABLE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Benchmark scenario options.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
 
     char msg[APPCONST::MAX_TEXT_STRING];
     const OPTION_ENTRY* p = options;
@@ -740,10 +776,10 @@ void writeOptionReport()
             break;
         }
         writeColor(" ", APPCONST::TABLE_COLOR);
-        writeParmAndValue(p->name, msg, 12);
+        writeParmAndValue(p->name, msg, 12, APPCONST::GROUP_COLOR);
         p++;
     }
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
 }
 BOOL initConsole(bool screenMode, bool fileMode, char* outPointer, size_t maxOutSize)
 {
@@ -793,7 +829,7 @@ void writeParmError(const char* string)
     write(temp);
     colorRestoreHelper();
 }
-void writeParmAndValue(const char* parmName, const char* parmValue, int nameWidth)
+void writeParmAndValue(const char* parmName, const char* parmValue, int nameWidth, WORD valueColor)
 {
     char temp[APPCONST::MAX_TEXT_STRING];
     int n = snprintf(temp, APPCONST::MAX_TEXT_STRING, "%s", parmName);
@@ -808,7 +844,7 @@ void writeParmAndValue(const char* parmName, const char* parmValue, int nameWidt
     colorHelper(APPCONST::PARM_COLOR);
     write(temp);
     snprintf(temp, APPCONST::MAX_TEXT_STRING, "%s\r\n", parmValue);
-    colorHelper(APPCONST::VALUE_COLOR);
+    colorHelper(valueColor);
     write(temp);
     colorRestoreHelper();
 }
@@ -1219,17 +1255,33 @@ void cellPrintHelper(char* buffer, size_t limit, size_t cell, size_t count)
         }
     }
 }
-
 // Target operation-specific tasks (measure storage performance in this application).
-void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds)
+void waitTime(char* msg, DWORD milliseconds, const char* operationName)
+{
+    if (milliseconds)
+    {
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\n Wait before start %s (%d ms).", operationName, milliseconds);
+        writeColor(msg, APPCONST::VALUE_COLOR);
+        Sleep(milliseconds);
+    }
+}
+void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode)
 {
     double min = 0.0, max = 0.0, average = 0.0, median = 0.0;
     calculateStatistics(speeds, min, max, average, median);
     snprintf(msg, APPCONST::MAX_TEXT_STRING, "%s", statisticsName);
     writeColor(msg, APPCONST::GROUP_COLOR);
-    snprintf(msg, APPCONST::MAX_TEXT_STRING,
-        "max = %8.3f,  min = %8.3f,  average = %8.3f,  median = %8.3f.",
-        max, min, average, median);
+    if (tableMode)
+    {
+        snprintf(msg, APPCONST::MAX_TEXT_STRING,
+            "%14.3f%14.3f%14.3f%14.3f", min, max, average, median);
+    }
+    else
+    {
+        snprintf(msg, APPCONST::MAX_TEXT_STRING,
+            "min = %8.3f,  max = %8.3f,  average = %8.3f,  median = %8.3f.",
+            min, max, average, median);
+    }
     writeColor(msg, APPCONST::VALUE_COLOR);
 }
 int runTask(COMMAND_LINE_PARMS* p)
@@ -1250,6 +1302,9 @@ int runTask(COMMAND_LINE_PARMS* p)
     BOOL flagNoBuffering = APPCONST::DEFAULT_FLAG_NO_BUFFERING;
     BOOL flagWriteThrough = APPCONST::DEFAULT_FLAG_WRITE_THROUGH;
     BOOL flagSequentalScan = APPCONST::DEFAULT_FLAG_SEQUENTIAL_SCAN;
+    DWORD32 msWaitRead = APPCONST::DEFAULT_WAIT_READ;
+    DWORD32 msWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
+    DWORD32 msWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
     // If input parameters structure passed, load parameters from this structure.
     if (p)
     {
@@ -1258,13 +1313,22 @@ int runTask(COMMAND_LINE_PARMS* p)
         fileCount = p->optionFileCount;
         fileSize = static_cast<DWORD32>(p->optionFileSize);
         blockSize = static_cast<DWORD32>(p->optionBlockSize);
-        repeats = 1; //  p->optionRepeats;
+        repeats = p->optionRepeats;
         dataType = static_cast<D_TYPE>(p->optionData);
         addressType = static_cast<A_TYPE>(p->optionAddress);
         flagNoBuffering = p->optionNoBuf;
         flagWriteThrough = p->optionWriteThr;
         flagSequentalScan = p->optionSequental;
+        msWaitRead = p->optionWaitRead;
+        msWaitWrite = p->optionWaitWrite;
+        msWaitCopy = p->optionWaitCopy;
     }
+    // Initializing variables for read, write and copy total sizes verification.
+    DWORD64 totalRead = 0;
+    DWORD64 totalWrite = 0;
+    DWORD64 totalCopyRead = 0;
+    DWORD64 totalCopyWrite = 0;
+    DWORD64 totalBytes = fileSize * fileCount * repeats;
     // Initializing timer (use OS performance counter).
     LARGE_INTEGER hz;
     BOOL status;
@@ -1332,7 +1396,7 @@ int runTask(COMMAND_LINE_PARMS* p)
 #ifdef NATIVE_WIDTH_64
             DWORD64* qwordPtr = reinterpret_cast<DWORD64*>(fileData);
             unsigned int qwordCount = static_cast<unsigned int>(fileSize / 8);
-            for (int i = 0; i < qwordCount; i++)
+            for (unsigned int i = 0; i < qwordCount; i++)
             {
                 while (!_rdrand64_step(qwordPtr));
                 qwordPtr++;
@@ -1340,7 +1404,7 @@ int runTask(COMMAND_LINE_PARMS* p)
 #else
             DWORD32* dwordPtr = reinterpret_cast<DWORD32*>(fileData);
             unsigned int dwordCount = static_cast<unsigned int>(fileSize / 4);
-            for (int i = 0; i < dwordCount; i++)
+            for (unsigned int i = 0; i < dwordCount; i++)
             {
                 while (!_rdrand32_step(dwordPtr));
                 dwordPtr++;
@@ -1438,25 +1502,29 @@ int runTask(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (createError)
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return FILE_CREATE_FAILED;
     }
-    // Write source files.
+    // Initializing for timings measurements.
     LARGE_INTEGER t1, t2, t3, t4;
     double timeUnitSeconds = 1.0 / hz.QuadPart;
     double fileMegabytes = fileSize * repeats / 1000000.0;
     double integralMegabytes = fileMegabytes * fileCount;
+    // Initializing for write source files.
     std::vector<double> writeSpeed;
     double writeSpeedIntegral = 0.0;
+    // Wait before WRITE operation start, if selected by option.
+    waitTime(msg, msWaitWrite, "write");
+    // Table up for WRITE operation.
     writeColor("\r\n Write file performance.\r\n", APPCONST::VALUE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     writeColor(" Index     MBPS\r\n", APPCONST::TABLE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     BOOL writeError = FALSE;
-    // Write source files - start timer for integral time.
+    // Start timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return TIMER_FAILED;
     }
     t2.QuadPart = t1.QuadPart;
@@ -1464,50 +1532,62 @@ int runTask(COMMAND_LINE_PARMS* p)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
             return TIMER_FAILED;
         }
     }
-    // Write source files - start write cycle.
+    // Start cycle for write source files (re-positioning file pointer required because repeats).
     for (unsigned int i = 0; i < fileCount; i++)
     {
-        HANDLE hFile = srcHandles[i];
-        DWORD32 writeSize = fileSize;
-        BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData);
-        DWORD nNumberOfBytesWritten = 0;
-        LPDWORD lpNumberOfBytesWritten = &nNumberOfBytesWritten;
-        // Write source files - start timer for one file.
+        // Start timer for one source file write.
         QueryPerformanceCounter(&t3);
-        while (writeSize)
+        // Start cycle for measurement repeats.
+        for (unsigned int j = 0; j < repeats; j++)
         {
-            DWORD nNumberOfBytesToWrite = blockSize;
-            if (writeSize >= blockSize)
+            HANDLE hFile = srcHandles[i];
+            DWORD32 writeSize = fileSize;
+            BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData);
+            DWORD nNumberOfBytesWritten = 0;
+            LPDWORD lpNumberOfBytesWritten = &nNumberOfBytesWritten;
+            // Seek (restore file pointer to 0) and write one source file.
+            if (SetFilePointer(hFile, 0, nullptr, FILE_BEGIN) != 0)
             {
-                writeSize -= blockSize;
+                writeError = TRUE;
+                break;
             }
-            else
+            while (writeSize)
             {
-                nNumberOfBytesToWrite = writeSize;
-                writeSize = 0;
-            }
-            while (nNumberOfBytesToWrite > 0)
-            {
-                if (!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, nullptr))
+                DWORD nNumberOfBytesToWrite = blockSize;
+                if (writeSize >= blockSize)
                 {
-                    writeError = TRUE;
-                    break;
+                    writeSize -= blockSize;
                 }
-                if ((nNumberOfBytesWritten <= 0) || (nNumberOfBytesWritten > nNumberOfBytesToWrite))
+                else
                 {
-                    writeError = TRUE;
-                    break;
+                    nNumberOfBytesToWrite = writeSize;
+                    writeSize = 0;
                 }
-                lpBuffer += nNumberOfBytesWritten;
-                nNumberOfBytesToWrite -= nNumberOfBytesWritten;
+                while (nNumberOfBytesToWrite > 0)
+                {
+                    if (!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, nullptr))
+                    {
+                        writeError = TRUE;
+                        break;
+                    }
+                    if ((nNumberOfBytesWritten <= 0) || (nNumberOfBytesWritten > nNumberOfBytesToWrite))
+                    {
+                        writeError = TRUE;
+                        break;
+                    }
+                    lpBuffer += nNumberOfBytesWritten;
+                    nNumberOfBytesToWrite -= nNumberOfBytesWritten;
+                    totalWrite += nNumberOfBytesWritten;
+                }
+                if (writeError) break;
             }
             if (writeError) break;
-        }
-        // Write source files - stop timer for one file.
+        }  // End cycle for measurement repeats.
+        // Stop timer for one source file write.
         QueryPerformanceCounter(&t4);
         if (writeError) break;
         double seconds = (t4.QuadPart - t3.QuadPart) * timeUnitSeconds;
@@ -1516,10 +1596,10 @@ int runTask(COMMAND_LINE_PARMS* p)
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%.3f\r\n", i, mbps);
         write(msg);
     }
-    // Write source files - stop timer for integral time.
+    // Stop timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return TIMER_FAILED;
     }
     else
@@ -1527,27 +1607,29 @@ int runTask(COMMAND_LINE_PARMS* p)
         double seconds = (t1.QuadPart - t2.QuadPart) * timeUnitSeconds;
         double mbps = integralMegabytes / seconds;
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " Integral  %.3f\r\n", mbps);
-        writeColor(msg, APPCONST::DUMP_ADDRESS_COLOR);
+        writeColor(msg, APPCONST::GROUP_COLOR);
     }
-
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (writeError)
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return FILE_WRITE_FAILED;
     }
-    // Copy source files to destination files (re-positioning required after write for source files).
+    // Initializing for copy source files to destination files (re-positioning required for source files after it writes).
     std::vector<double> copySpeed;
     double copySpeedIntegral = 0.0;
+    // Wait before COPY operation start, if selected by option.
+    waitTime(msg, msWaitCopy, "copy");
+    // Table up for COPY operation.
     writeColor("\r\n Copy file performance.\r\n", APPCONST::VALUE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     writeColor(" Index     MBPS\r\n", APPCONST::TABLE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     BOOL copyError = FALSE;
-    // Copy files - start timer for integral time.
+    // Start timer for integral time of copy files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return TIMER_FAILED;
     }
     t2.QuadPart = t1.QuadPart;
@@ -1555,95 +1637,109 @@ int runTask(COMMAND_LINE_PARMS* p)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
             return TIMER_FAILED;
         }
     }
-    // Copy files - start copy cycle.
+    // Start cycle for copy files  (re-positioning file pointer required because repeats).
     for (unsigned int i = 0; i < fileCount; i++)
     {
-        // Read one source file.
-        HANDLE hFile = srcHandles[i];
-        if (SetFilePointer(hFile, 0, nullptr, FILE_BEGIN) != 0)
-        {
-            copyError = TRUE;
-            break;
-        }
-        DWORD32 readSize = fileSize;
-        BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData);
-        DWORD nNumberOfBytesRead = 0;
-        LPDWORD lpNumberOfBytesRead = &nNumberOfBytesRead;
-        // Copy files - start timer for one file.
+        // Start timer for one source file write to destination file.
         QueryPerformanceCounter(&t3);
-        while (readSize)
+        // Start cycle for measurement repeats.
+        for (unsigned int j = 0; j < repeats; j++)
         {
-            DWORD nNumberOfBytesToRead = blockSize;
-            if (readSize >= blockSize)
+            HANDLE hFile = srcHandles[i];
+            DWORD32 readSize = fileSize;
+            BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData);
+            DWORD nNumberOfBytesRead = 0;
+            LPDWORD lpNumberOfBytesRead = &nNumberOfBytesRead;
+            // Seek (restore file pointer to 0) and read one source file.
+            if (SetFilePointer(hFile, 0, nullptr, FILE_BEGIN) != 0)
             {
-                readSize -= blockSize;
+                copyError = TRUE;
+                break;
             }
-            else
+            // Read one source file.
+            while (readSize)
             {
-                nNumberOfBytesToRead = readSize;
-                readSize = 0;
-            }
-            while (nNumberOfBytesToRead > 0)
-            {
-                if (!ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, nullptr))
+                DWORD nNumberOfBytesToRead = blockSize;
+                if (readSize >= blockSize)
                 {
-                    copyError = TRUE;
-                    break;
+                    readSize -= blockSize;
                 }
-                if ((nNumberOfBytesRead <= 0) || (nNumberOfBytesRead > nNumberOfBytesToRead))
+                else
                 {
-                    copyError = TRUE;
-                    break;
+                    nNumberOfBytesToRead = readSize;
+                    readSize = 0;
                 }
-                lpBuffer += nNumberOfBytesRead;
-                nNumberOfBytesToRead -= nNumberOfBytesRead;
+                while (nNumberOfBytesToRead > 0)
+                {
+                    if (!ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, nullptr))
+                    {
+                        copyError = TRUE;
+                        break;
+                    }
+                    if ((nNumberOfBytesRead <= 0) || (nNumberOfBytesRead > nNumberOfBytesToRead))
+                    {
+                        copyError = TRUE;
+                        break;
+                    }
+                    lpBuffer += nNumberOfBytesRead;
+                    nNumberOfBytesToRead -= nNumberOfBytesRead;
+                    totalCopyRead += nNumberOfBytesRead;
+                }
+                if (copyError) break;
             }
             if (copyError) break;
-        }
-        if (copyError) break;
-        // Write one destination file.
-        hFile = dstHandles[i];
-        DWORD32 writeSize = fileSize;
-        lpBuffer = reinterpret_cast<BYTE*>(fileData);
-        DWORD nNumberOfBytesWritten = 0;
-        LPDWORD lpNumberOfBytesWritten = &nNumberOfBytesWritten;
-        while (writeSize)
-        {
-            DWORD nNumberOfBytesToWrite = blockSize;
-            if (writeSize >= blockSize)
+            // Variables for write one destination file.
+            hFile = dstHandles[i];
+            DWORD32 writeSize = fileSize;
+            lpBuffer = reinterpret_cast<BYTE*>(fileData);
+            DWORD nNumberOfBytesWritten = 0;
+            LPDWORD lpNumberOfBytesWritten = &nNumberOfBytesWritten;
+            // Seek (restore file pointer to 0) and read one source file.
+            if (SetFilePointer(hFile, 0, nullptr, FILE_BEGIN) != 0)
             {
-                writeSize -= blockSize;
+                copyError = TRUE;
+                break;
             }
-            else
+            // Write one destination file.
+            while (writeSize)
             {
-                nNumberOfBytesToWrite = writeSize;
-                writeSize = 0;
-            }
+                DWORD nNumberOfBytesToWrite = blockSize;
+                if (writeSize >= blockSize)
+                {
+                    writeSize -= blockSize;
+                }
+                else
+                {
+                    nNumberOfBytesToWrite = writeSize;
+                    writeSize = 0;
+                }
 
-            while (nNumberOfBytesToWrite > 0)
-            {
-                if (!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, nullptr))
+                while (nNumberOfBytesToWrite > 0)
                 {
-                    copyError = TRUE;
-                    break;
+                    if (!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, nullptr))
+                    {
+                        copyError = TRUE;
+                        break;
+                    }
+                    if ((nNumberOfBytesWritten <= 0) || (nNumberOfBytesWritten > nNumberOfBytesToWrite))
+                    {
+                        copyError = TRUE;
+                        break;
+                    }
+                    lpBuffer += nNumberOfBytesWritten;
+                    nNumberOfBytesToWrite -= nNumberOfBytesWritten;
+                    totalCopyWrite += nNumberOfBytesWritten;
                 }
-                if ((nNumberOfBytesWritten <= 0) || (nNumberOfBytesWritten > nNumberOfBytesToWrite))
-                {
-                    copyError = TRUE;
-                    break;
-                }
-                lpBuffer += nNumberOfBytesWritten;
-                nNumberOfBytesToWrite -= nNumberOfBytesWritten;
+                if (copyError) break;
             }
-            if (copyError) break;
-        }
-        // Copy files - stop timer for one file.
+        }  // End cycle for measurement repeats.
+        // Stop timer for one source file write to destination file.
         QueryPerformanceCounter(&t4);
-        // Copy one file (one source and one destination file) done.
+        // End of copy one file (read one source file and write one destination file).
         if (copyError) break;
         double seconds = (t4.QuadPart - t3.QuadPart) * timeUnitSeconds;
         double mbps = fileMegabytes / seconds;
@@ -1651,10 +1747,10 @@ int runTask(COMMAND_LINE_PARMS* p)
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%.3f\r\n", i, mbps);
         write(msg);
     }
-    // Copy files - stop timer for integral time.
+    // Stop timer for integral time of copy files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return TIMER_FAILED;
     }
     else
@@ -1662,26 +1758,29 @@ int runTask(COMMAND_LINE_PARMS* p)
         double seconds = (t1.QuadPart - t2.QuadPart) * timeUnitSeconds;
         double mbps = integralMegabytes / seconds;
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " Integral  %.3f\r\n", mbps);
-        writeColor(msg, APPCONST::DUMP_ADDRESS_COLOR);
+        writeColor(msg, APPCONST::GROUP_COLOR);
     }
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (copyError)
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return FILE_COPY_FAILED;
     }
-    // Read source files (re-positioning required after read at copy phase for source files).
+    // Initializing for read source files to destination files (re-positioning required for source files after it copy).
     std::vector<double> readSpeed;
     double readSpeedIntegral = 0.0;
+    // Wait before READ operation start, if selected by option.
+    waitTime(msg, msWaitRead, "read");
+    // Table up for READ operation.
     writeColor("\r\n Read file performance.\r\n", APPCONST::VALUE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     writeColor(" Index     MBPS\r\n", APPCONST::TABLE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     BOOL readError = FALSE;
-    // Read source files - start timer for integral time.
+    // Start timer for integral time of read files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return TIMER_FAILED;
     }
     t2.QuadPart = t1.QuadPart;
@@ -1689,56 +1788,61 @@ int runTask(COMMAND_LINE_PARMS* p)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
             return TIMER_FAILED;
         }
     }
-    // Read source files - start read cycle.
+    // Read source files - start read cycle  (re-positioning file pointer required because repeats).
     for (unsigned int i = 0; i < fileCount; i++)
     {
-        HANDLE hFile = srcHandles[i];
-        if (SetFilePointer(hFile, 0, nullptr, FILE_BEGIN) != 0)
-        {
-            readError = TRUE;
-            break;
-        }
-        DWORD32 readSize = fileSize;
-        BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData);
-        DWORD nNumberOfBytesRead = 0;
-        LPDWORD lpNumberOfBytesRead = &nNumberOfBytesRead;
-        // Read source files - start timer for one file.
+        // Start timer for one source file read.
         QueryPerformanceCounter(&t3);
-        while (readSize)
+        // Start cycle for measurement repeats.
+        for (unsigned int j = 0; j < repeats; j++)
         {
-            DWORD nNumberOfBytesToRead = blockSize;
-            if (readSize >= blockSize)
+            HANDLE hFile = srcHandles[i];
+            DWORD32 readSize = fileSize;
+            BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData);
+            DWORD nNumberOfBytesRead = 0;
+            LPDWORD lpNumberOfBytesRead = &nNumberOfBytesRead;
+            if (SetFilePointer(hFile, 0, nullptr, FILE_BEGIN) != 0)
             {
-                readSize -= blockSize;
+                readError = TRUE;
+                break;
             }
-            else
+            while (readSize)
             {
-                nNumberOfBytesToRead = readSize;
-                readSize = 0;
-            }
+                DWORD nNumberOfBytesToRead = blockSize;
+                if (readSize >= blockSize)
+                {
+                    readSize -= blockSize;
+                }
+                else
+                {
+                    nNumberOfBytesToRead = readSize;
+                    readSize = 0;
+                }
 
-            while (nNumberOfBytesToRead > 0)
-            {
-                if (!ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, nullptr))
+                while (nNumberOfBytesToRead > 0)
                 {
-                    readError = TRUE;
-                    break;
+                    if (!ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, nullptr))
+                    {
+                        readError = TRUE;
+                        break;
+                    }
+                    if ((nNumberOfBytesRead <= 0) || (nNumberOfBytesRead > nNumberOfBytesToRead))
+                    {
+                        readError = TRUE;
+                        break;
+                    }
+                    lpBuffer += nNumberOfBytesRead;
+                    nNumberOfBytesToRead -= nNumberOfBytesRead;
+                    totalRead += nNumberOfBytesRead;
                 }
-                if ((nNumberOfBytesRead <= 0) || (nNumberOfBytesRead > nNumberOfBytesToRead))
-                {
-                    readError = TRUE;
-                    break;
-                }
-                lpBuffer += nNumberOfBytesRead;
-                nNumberOfBytesToRead -= nNumberOfBytesRead;
+                if (readError) break;
             }
-            if (readError) break;
-        }
-        // Read source files - stop timer for one file.
+        }  // End cycle for measurement repeats.
+        // Stop timer for one source file read.
         QueryPerformanceCounter(&t4);
         if (readError) break;
         double seconds = (t4.QuadPart - t3.QuadPart) * timeUnitSeconds;
@@ -1747,10 +1851,10 @@ int runTask(COMMAND_LINE_PARMS* p)
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%.3f\r\n", i, mbps);
         write(msg);
     }
-    // Read source files - stop timer for integral time.
+    // Stop timer for integral time of read source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return TIMER_FAILED;
     }
     else
@@ -1758,21 +1862,21 @@ int runTask(COMMAND_LINE_PARMS* p)
         double seconds = (t1.QuadPart - t2.QuadPart) * timeUnitSeconds;
         double mbps = integralMegabytes / seconds;
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " Integral  %.3f\r\n", mbps);
-        writeColor(msg, APPCONST::DUMP_ADDRESS_COLOR);
+        writeColor(msg, APPCONST::GROUP_COLOR);
     }
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (readError)
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return FILE_READ_FAILED;
     }
     // Close and delete files.
     writeColor("\r\n Delete files.\r\n", APPCONST::VALUE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     writeColor(" Index     Path\r\n", APPCONST::TABLE_COLOR);
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     BOOL deleteError = FALSE;
-    // Delete source files.
+    // Close and delete source files.
     for (unsigned int i = 0; i < fileCount; i++)
     {
         snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, i, nameExt);
@@ -1781,7 +1885,7 @@ int runTask(COMMAND_LINE_PARMS* p)
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%s\r\n", i, path);
         write(msg);
     }
-    // Delete destination files.
+    // Close and delete destination files.
     for (unsigned int i = 0; i < fileCount; i++)
     {
         snprintf(path, MAX_PATH, "%s%s%08X%s", nameDstPath, nameDst, i, nameExt);
@@ -1791,18 +1895,42 @@ int runTask(COMMAND_LINE_PARMS* p)
         write(msg);
     }
     // Delete source and destination files done.
-    writeColorLine(APPCONST::HALF_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (deleteError)
     {
-        if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return FILE_DELETE_FAILED;
     }
-    // Write performance measurement statistics.
-    writeColor("\r\nPerformance Statistics.\r\n", APPCONST::TABLE_COLOR);
-    writeStatistics(msg, "\r\nREAD   ", readSpeed);
-    writeStatistics(msg, "\r\nWRITE  ", writeSpeed);
-    writeStatistics(msg, "\r\nCOPY   ", copySpeed);
-    write("\r\n");
+    // Verify total read, write and copy sizes: compare returned by WinAPI and calculated values.
+    if ((totalBytes > 0) && 
+        (totalRead == totalBytes) && (totalWrite == totalBytes) && (totalCopyRead == totalBytes) && (totalCopyWrite == totalBytes))
+    {   // Write performance measurement statistics, if total size verification passed.
+        writeColor("\r\n Performance Statistics.\r\n", APPCONST::VALUE_COLOR);
+        writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+        writeColor(" Operation      min           max         average       median\r\n", APPCONST::TABLE_COLOR);
+        writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+        writeStatistics(msg, " READ  ", readSpeed, true);
+        writeStatistics(msg, "\r\n WRITE ", writeSpeed, true);
+        writeStatistics(msg, "\r\n COPY  ", copySpeed, true);
+        write("\r\n");
+        writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    }
+    else
+    {   // Write error message, if total read, write, copy, size verification failed.
+        writeColor("\r\nTotal read/write size verification error.", APPCONST::ERROR_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nCalculated = %016llXh,\r\n", totalBytes);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Read       = %016llXh", totalRead);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Write      = %016llXh,\r\n", totalWrite);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Copy read  = %016llXh", totalCopyRead);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Copy write = %016llXh.\r\n", totalCopyWrite);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
+        return FILE_SIZE_MISMATCH;
+    }
     // Done, release resources and return.
     status = FALSE;
     if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
