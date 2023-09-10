@@ -12,10 +12,10 @@ TODO.
 3)  + Support measurement repeats.
 4)  + Default path must be empty.
 5)  + Check support RDRAND instruction by CPUID instruction. At procedure void correctAfterParse().
-6)  Support wait times options before read, write, copy.
-7)  Support procedures: void resetBeforeParse(), void correctAfterParse().
-8)  Error message and exit if wrong options (instead default scenario).
-9)  Errors handling, visual OS error code by existing helper. Restore state when return.
+6)  + Support wait times options before read, write and copy.
+7)  + Errors handling, visual OS error code by existing helper. Restore state when return. After return from RunTask(). Use RETURN_NAMES[].
+8)  Support procedures: void resetBeforeParse(), void correctAfterParse(). Check all options.
+9)  Error message and exit if wrong options (instead default scenario).
 10) Close file group than measure integral time (?)
 11) Extended verification by compare read data and write data.
 12) Wait key option: wait after actions.
@@ -119,7 +119,8 @@ typedef enum
     FILE_COPY_FAILED,
     FILE_READ_FAILED,
     FILE_DELETE_FAILED,
-    FILE_SIZE_MISMATCH
+    FILE_SIZE_MISMATCH,
+    STATUS_MAX
 }  STATUS_CODES;
 
 namespace APPCONST
@@ -127,7 +128,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.03";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.04";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -193,11 +194,26 @@ const char* keysHt[] = { "default", "off", "on", nullptr };
 const char* keysNuma[] = { "unaware", "single", "optimal", "nonoptimal", nullptr };
 const char* keysPgroups[] = { "unaware", "single", "all", nullptr };
 const char* DATA_NAMES[]
-{ "ALL_ZEROES",
-   "ALL_ONES",
-   "INCREMENTAL",
-   "SOFT_RANDOM",
-   "HARD_RANDOM" };
+{ 
+    "ALL_ZEROES",
+    "ALL_ONES",
+    "INCREMENTAL",
+    "SOFT_RANDOM",
+    "HARD_RANDOM" 
+};
+const char* RETURN_NAMES[]
+{
+    "NO_ERRORS",
+    "TIMER_FAILED",
+    "MEMORY_ALLOCATION_FAILED",
+    "MEMORY_RELEASE_FAILED",
+    "FILE_CREATE_FAILED",
+    "FILE_WRITE_FAILED",
+    "FILE_COPY_FAILED",
+    "FILE_READ_FAILED",
+    "FILE_DELETE_FAILED",
+    "FILE_SIZE_MISMATCH"
+};
 // Pointer command line parameters structure.
 COMMAND_LINE_PARMS parms;
 // Option control list, used for command line parameters parsing (regular input).
@@ -379,20 +395,35 @@ int main(int argc, char** argv)
             correctAfterParse();    // Verify and correct (if required) options values.
             // Get scenario options for mass storage performance test.
 			COMMAND_LINE_PARMS* pCommandLineParms = &parms;
-			int opStatus = 0;
-			// int localStatus = Task::RunTask(nullptr);    // Reserved alternative.
             // Target operation: execute mass storage performance test.
-			int localStatus = runTask(pCommandLineParms);
+            int opStatus = runTask(pCommandLineParms);
             // Interpreting status.
-			if (opStatus == 0)
+			if (opStatus == NO_ERRORS)
 			{
 				snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nPerformance scenario OK.\r\n");
 				writeColor(msg, APPCONST::NO_ERROR_COLOR);
 			}
 			else
 			{
-				snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nPerformance scenario FAILED (%d).\r\n", opStatus);
+				snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nPerformance scenario error %d", opStatus);
 				writeColor(msg, APPCONST::ERROR_COLOR);
+                if (opStatus < STATUS_MAX)
+                {
+                    const char* returnName = RETURN_NAMES[opStatus];
+                    snprintf(msg, APPCONST::MAX_TEXT_STRING, " = %s.\r\n", returnName);
+                    writeColor(msg, APPCONST::ERROR_COLOR);
+                    DWORD osError = GetLastError();
+                    if (osError)
+                    {
+                        storeSystemErrorName(msg, APPCONST::MAX_TEXT_STRING, osError);
+                        writeColor(msg, APPCONST::ERROR_COLOR);
+                    }
+                }
+                else
+                {
+                    writeColor(" = Unknown error.\r\n", APPCONST::ERROR_COLOR);
+                }
+                write("\r\n");
 			}
 			// Save report buffer to output file, if file mode enabled.
 			if (fileMode)
@@ -1461,7 +1492,7 @@ int runTask(COMMAND_LINE_PARMS* p)
 #endif
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
         write(msg);
-        if (handle)
+        if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
         {
             srcHandles.push_back(handle);
         }
@@ -1473,29 +1504,32 @@ int runTask(COMMAND_LINE_PARMS* p)
     }
     // Create destination files.
     std::vector<HANDLE> dstHandles;
-    for (unsigned int i = 0; i < fileCount; i++)
+    if (!createError)
     {
-        snprintf(path, MAX_PATH, "%s%s%08X%s", nameDstPath, nameDst, i, nameExt);
-        DWORD attributes = FILE_ATTRIBUTE_NORMAL;
-        if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
-        if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
-        if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
-        HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
+        for (unsigned int i = 0; i < fileCount; i++)
+        {
+            snprintf(path, MAX_PATH, "%s%s%08X%s", nameDstPath, nameDst, i, nameExt);
+            DWORD attributes = FILE_ATTRIBUTE_NORMAL;
+            if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
+            if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
+            if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
+            HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
 #ifdef NATIVE_WIDTH_64
-        DWORD64 numHandle = (DWORD64)handle;
+            DWORD64 numHandle = (DWORD64)handle;
 #else
-        DWORD64 numHandle = (DWORD64)((DWORD32)handle);
+            DWORD64 numHandle = (DWORD64)((DWORD32)handle);
 #endif
-        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
-        write(msg);
-        if (handle)
-        {
-            dstHandles.push_back(handle);
-        }
-        else
-        {
-            createError = TRUE;
-            break;
+            snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
+            write(msg);
+            if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
+            {
+                dstHandles.push_back(handle);
+            }
+            else
+            {
+                createError = TRUE;
+                break;
+            }
         }
     }
     // Both source and destination files created (yet zero size).
