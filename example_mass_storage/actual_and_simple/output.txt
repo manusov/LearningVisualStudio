@@ -1,4 +1,4 @@
-Mass storage performance test v0.01.04 (x64).
+Mass storage performance test v0.01.05 (x64).
 Input configuration file parsed OK.
 
  Benchmark scenario options.
@@ -8,70 +8,74 @@ Input configuration file parsed OK.
  filesize    64.000 MB           
  blocksize   16.000 MB           
  filecount   5
- repeats     1
+ repeats     2
+ address     mbps
  data        zeroes
  nobuf       1
  writethr    1
  sequental   0
- waitread    0
- waitwrite   0
- waitcopy    0
+ waitread    1000
+ waitwrite   2000
+ waitcopy    3000
 -------------------------------
 
 Performance frequency 10.000 MHz, period 0.100 microseconds.
-Memory allocated, base=000002476D0E0000h, size=0000000004000000h.
-Memory initializing (ALL_ZEROES), fill rate = 9382.574 MBPS.
+Memory allocated, base=00000154BB0A0000h, size=0000000004000000h.
+Memory initializing (ALL_ZEROES), fill rate = 9212.177 MBPS.
 
  Create files.
 --------------------------------------------------------------------
  Index     Handle (hex)         Path
 --------------------------------------------------------------------
- 0         0000000000000150     src_00000000.bin
- 1         0000000000000154     src_00000001.bin
- 2         0000000000000158     src_00000002.bin
- 3         00000000000000B4     src_00000003.bin
- 4         000000000000015C     src_00000004.bin
- 0         0000000000000160     dst_00000000.bin
- 1         0000000000000164     dst_00000001.bin
- 2         0000000000000098     dst_00000002.bin
- 3         0000000000000168     dst_00000003.bin
- 4         000000000000016C     dst_00000004.bin
+ 0         0000000000000098     src_00000000.bin
+ 1         000000000000009C     src_00000001.bin
+ 2         00000000000000A0     src_00000002.bin
+ 3         00000000000000A4     src_00000003.bin
+ 4         00000000000000A8     src_00000004.bin
+ 0         00000000000000AC     dst_00000000.bin
+ 1         00000000000000B0     dst_00000001.bin
+ 2         00000000000000B4     dst_00000002.bin
+ 3         00000000000000B8     dst_00000003.bin
+ 4         00000000000000BC     dst_00000004.bin
 --------------------------------------------------------------------
 
+ Wait before start write (2000 ms).
  Write file performance.
 -------------------------------
  Index     MBPS
 -------------------------------
- 0         518.742
- 1         515.600
- 2         518.589
- 3         521.173
- 4         519.655
- Integral  518.079
+ 0         512.846
+ 1         522.161
+ 2         521.326
+ 3         522.386
+ 4         522.431
+ Integral  519.951
 -------------------------------
 
+ Wait before start copy (3000 ms).
  Copy file performance.
 -------------------------------
  Index     MBPS
 -------------------------------
- 0         268.381
- 1         269.008
- 2         268.846
- 3         268.587
- 4         269.102
- Integral  268.625
+ 0         266.947
+ 1         269.276
+ 2         269.062
+ 3         269.578
+ 4         269.434
+ Integral  268.785
 -------------------------------
 
+ Wait before start read (1000 ms).
  Read file performance.
 -------------------------------
  Index     MBPS
 -------------------------------
- 0         555.304
- 1         554.741
- 2         555.202
- 3         554.058
- 4         553.655
- Integral  553.923
+ 0         545.789
+ 1         555.325
+ 2         555.569
+ 3         555.566
+ 4         555.593
+ Integral  553.241
 -------------------------------
 
  Delete files.
@@ -94,9 +98,9 @@ Memory initializing (ALL_ZEROES), fill rate = 9382.574 MBPS.
 --------------------------------------------------------------------
  Operation      min           max         average       median
 --------------------------------------------------------------------
- READ         553.655       555.304       554.200       554.741
- WRITE        515.600       521.173       518.200       518.742
- COPY         268.381       269.102       268.400       268.846
+ READ         545.789       555.593       553.000       555.566
+ WRITE        512.846       522.431       519.800       522.161
+ COPY         266.947       269.578       268.400       269.276
 --------------------------------------------------------------------
 
 Performance scenario OK.

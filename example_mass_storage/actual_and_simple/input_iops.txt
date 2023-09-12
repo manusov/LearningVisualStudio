@@ -1,17 +1,17 @@
-; srcpath    = f:\exchange\
-; dstpath    = f:\backup\
+srcpath    = f:\exchange\
+dstpath    = f:\backup\
 filesize   = 64M
-blocksize  = 16M
-filecount  = 5
-repeats    = 2
-address    = mbps
+blocksize  = 1M
+filecount  = 10
+; repeats    = 2
+address    = iops
 data       = zeroes
 nobuf      = 1
 writethr   = 1
 sequental  = 0
-waitread   = 1000
-waitwrite  = 2000
-waitcopy   = 3000
+; waitread   = 1000
+; waitwrite  = 2000
+; waitcopy   = 3000
 
 ; UNDER CONSTRUCTION OPTIONS.
 ; threads    = 1
