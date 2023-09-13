@@ -12,6 +12,7 @@ sequental  = 0
 waitread   = 1000
 waitwrite  = 2000
 waitcopy   = 3000
+; queue      = 1
 
 ; UNDER CONSTRUCTION OPTIONS.
 ; threads    = 1
