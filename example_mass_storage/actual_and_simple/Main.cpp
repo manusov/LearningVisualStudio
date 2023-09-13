@@ -14,15 +14,16 @@ TODO.
 5)  + Check support RDRAND instruction by CPUID instruction. At procedure void correctAfterParse().
 6)  + Support wait times options before read, write and copy.
 7)  + Errors handling, visual OS error code by existing helper. Restore state when return. After return from RunTask(). Use RETURN_NAMES[].
-8)  Support procedures: void resetBeforeParse(), void correctAfterParse(). Check all options.
-9)  Error message and exit if wrong options (instead default scenario).
-10) Close file group than measure integral time (?)
-11) Extended verification by compare read data and write data.
-12) Wait key option: wait after actions.
-13) Report option: file and/or console.
-14) Support all other options.
-15) Re-verify all options settings support.
-16) Compare with NIOBench for some types of disks.
+8) Add scenarios with I/O queues, especially for IOPS, especially at multithread test. Enumerate as IOPS_QUEUED.
+9)  Support procedures: void resetBeforeParse(), void correctAfterParse(). Check all options.
+10)  Error message and exit if wrong options (instead default scenario).
+11) Close file group than measure integral time (?)
+12) Extended verification by compare read data and write data.
+13) Wait key option: wait after actions.
+14) Report option: file and/or console.
+15) Support all other options.
+16) Re-verify all options settings support.
+17) Compare with NIOBench for some types of disks.
 
 */
 
@@ -99,8 +100,9 @@ typedef enum {
 typedef enum
 {
     MBPS,
+    MBPS_ONE_FILE,
     IOPS,
-    ONE_FILE
+    
 }  A_TYPE;
 typedef enum
 {
@@ -137,7 +139,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.05";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.06";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -197,7 +199,7 @@ namespace APPCONST
 
 // Command line parameters parse control.
 // Strings for command line options detect.
-const char* keysAddress[] = { "mbps", "iops", "onefile", nullptr };
+const char* keysAddress[] = { "mbps", "mbpsone", "iops", nullptr };
 const char* keysData[] = { "zeroes", "ones", "inc", "softrnd", "hardrnd", nullptr };
 const char* keysHt[] = { "default", "off", "on", nullptr };
 const char* keysNuma[] = { "unaware", "single", "optimal", "nonoptimal", nullptr };
@@ -418,11 +420,11 @@ int main(int argc, char** argv)
             case MBPS:
                 opStatus = runTaskMBPS(pCommandLineParms);
                 break;
+            case MBPS_ONE_FILE:
+                opStatus = runTaskOneFile(pCommandLineParms);
+                break;
             case IOPS:
                 opStatus = runTaskIOPS(pCommandLineParms);
-                break;
-            case ONE_FILE:
-                opStatus = runTaskOneFile(pCommandLineParms);
                 break;
             default:
                 opStatus = INTERNAL_ERROR;
@@ -2346,10 +2348,12 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     }
     // Initializing I/O list for random access files and blocks.
     std::vector<IO_DESCRIPTOR> list;
-    std::vector<double> readIops;
     unsigned int blockCount = fileSize / blockSize;
     buildAddress(msg, hz, dataType, list, blockCount, fileCount);
-    // IOPS measurement for read, both source and destination files zones (read any).
+    // IOPS measurement for READ, both source and destination files zones (read any).
+    std::vector<double> readIops;
+    // Wait before READ operation start, if selected by option.
+    waitTime(msg, msWaitRead, "read");
     writeColor("\r\n Read IOPS measurement.\r\n", APPCONST::VALUE_COLOR);
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     writeColor(" Index     IOPS\r\n", APPCONST::TABLE_COLOR);
@@ -2448,7 +2452,108 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
         if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         return FILE_READ_FAILED;
     }
-    // RESERVED: IOPS measurement for write, both source and destination files zones (write any).
+    // IOPS measurement for WRITE, both source and destination files zones (read any).
+    std::vector<double> writeIops;
+    // Wait before WRITE operation start, if selected by option.
+    waitTime(msg, msWaitWrite, "write");
+    writeColor("\r\n Write IOPS measurement.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     IOPS\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeError = FALSE;
+    // Start timer for integral time of write IOPS.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
+        return TIMER_FAILED;
+    }
+    t2.QuadPart = t1.QuadPart;
+    while (t2.QuadPart == t1.QuadPart)
+    {
+        if (!QueryPerformanceCounter(&t2))
+        {
+            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
+            return TIMER_FAILED;
+        }
+    }
+    index = 0;
+    for (unsigned int i = 0; i < 2; i++)                     // Cycle for src and dst files groups.
+    {
+        for (unsigned int j = 0; j < fileCount; j++)         // Cycle for files.
+        {
+            // Start timer for one unit for IOPS measurement, unit same as file size.
+            QueryPerformanceCounter(&t3);
+            for (unsigned int k = 0; k < blockCount; k++)    // Cycle for blocks in the file.
+            {
+                IO_DESCRIPTOR d = list[index];
+                HANDLE hFile = NULL;
+                if (d.flags)
+                {
+                    hFile = dstHandles[j];
+                }
+                else
+                {
+                    hFile = srcHandles[j];
+                }
+                LONG offset = d.blockIndex * blockSize;
+                BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData) + offset;
+                DWORD nNumberOfBytesWritten = 0;
+                LPDWORD lpNumberOfBytesWritten = &nNumberOfBytesWritten;
+                if (SetFilePointer(hFile, offset, nullptr, FILE_BEGIN) != offset)
+                {
+                    writeError = TRUE;
+                    break;
+                }
+                DWORD nNumberOfBytesToWrite = blockSize;
+                while (nNumberOfBytesToWrite > 0)
+                {
+                    if (!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, nullptr))
+                    {
+                        writeError = TRUE;
+                        break;
+                    }
+                    if ((nNumberOfBytesWritten <= 0) || (nNumberOfBytesWritten > nNumberOfBytesToWrite))
+                    {
+                        writeError = TRUE;
+                        break;
+                    }
+                    lpBuffer += nNumberOfBytesWritten;
+                    nNumberOfBytesToWrite -= nNumberOfBytesWritten;
+                    totalWrite += nNumberOfBytesWritten;
+                }
+                index++;
+                if (writeError) break;
+            }                           // End of cycle for blocks in the file.
+            // Stop timer for one unit for IOPS measurement, unit same as file size.
+            QueryPerformanceCounter(&t4);
+            if (writeError) break;
+            double seconds = (t4.QuadPart - t3.QuadPart) * timeUnitSeconds;
+            double iops = blockCount / seconds;
+            writeIops.push_back(iops);
+            snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%.3f\r\n", j, iops);
+            write(msg);
+        }                               // End of cycle for files.
+        if (writeError) break;
+    }                                   // End of cycle for src and dst files groups.
+    // Stop timer for integral time of read IOPS.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
+        return TIMER_FAILED;
+    }
+    else
+    {
+        double seconds = (t1.QuadPart - t2.QuadPart) * timeUnitSeconds;
+        double iops = index / seconds;
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " Integral  %.3f\r\n", iops);
+        writeColor(msg, APPCONST::GROUP_COLOR);
+    }
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (writeError)
+    {
+        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
+        return FILE_WRITE_FAILED;
+    }
     // RESERVED: IOPS measurement for copy, from source to destination files zones (read src, write dst).
     // RESERVED: IOPS measurement for copy, both source and destination files zones (read any, write any).
     // Close and delete files.
@@ -2485,16 +2590,15 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     // Verify total read, write and copy sizes: compare returned by WinAPI and calculated values.
 //  if ((totalBytes > 0) &&
 //      (totalRead == totalBytes) && (totalWrite == totalBytes) && (totalCopyRead == totalBytes) && (totalCopyWrite == totalBytes))
-    if ((totalBytes > 0) && (totalRead == totalBytes) )
-// Yet only READ IOPS test.
+    if ((totalBytes > 0) && (totalRead == totalBytes) && (totalWrite == totalBytes))
+// Yet only READ and WRITE for IOPS test.
     {   // Write performance measurement statistics, if total size verification passed.
-
         writeColor("\r\n Performance Statistics.\r\n", APPCONST::VALUE_COLOR);
         writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
         writeColor(" Operation      min           max         average       median\r\n", APPCONST::TABLE_COLOR);
         writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
         writeStatistics(msg, " READ  ", readIops, true);
-//      writeStatistics(msg, "\r\n WRITE ", writeIops, true);
+        writeStatistics(msg, "\r\n WRITE ", writeIops, true);
 //      writeStatistics(msg, "\r\n COPY  ", copyIops, true);
         write("\r\n");
         writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
@@ -2908,7 +3012,7 @@ int runTaskOneFile(COMMAND_LINE_PARMS* p)
         if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         if (writeError)
             return FILE_WRITE_FAILED;
-        else if(copyError)
+        else if (copyError)
             return FILE_COPY_FAILED;
         else
             return FILE_READ_FAILED;
