@@ -143,7 +143,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.08";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.09";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -3564,7 +3564,7 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     // IOPS measurement for WRITE, both source and destination files zones (read any).
     std::vector<double> writeIops;
     // Wait before WRITE operation start, if selected by option.
-    waitTime(msg, msWaitRead, "write");
+    waitTime(msg, msWaitWrite, "write");
     writeColor("\r\n Write IOPS measurement.\r\n", APPCONST::VALUE_COLOR);
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     writeColor(" Index     IOPS\r\n", APPCONST::TABLE_COLOR);

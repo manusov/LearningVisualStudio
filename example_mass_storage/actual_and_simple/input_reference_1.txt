@@ -1,6 +1,5 @@
-; srcpath    = f:\exchange\
-; dstpath    = f:\backup\
-
+srcpath    = f:\exchange\
+dstpath    = f:\backup\
 filesize   = 256M
 blocksize  = 512K
 filecount  = 10
