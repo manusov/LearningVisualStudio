@@ -143,7 +143,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.07";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.08";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -3412,7 +3412,7 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
             nameName = nameDst;
         }
         snprintf(path, MAX_PATH, "%s%s%08X%s", namePath, nameName, j, nameExt);
-        DWORD attributes = FILE_ATTRIBUTE_NORMAL;
+        DWORD attributes = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED;    // Changed for overlapped I/O (asynchronous with queue).
         if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
         if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
         if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
@@ -3504,16 +3504,16 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
                     }
                     LONG offset = d.blockIndex * blockSize;
                     BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData) + offset;
-                    if (SetFilePointer(hFile, offset, nullptr, FILE_BEGIN) != offset)
-                    {
-                        readError = TRUE;
-                        break;
-                    }
-                    overlaps[m].Offset = offset;
+                    //if (SetFilePointer(hFile, offset, nullptr, FILE_BEGIN) != offset)
+                    //{
+                    //    readError = TRUE;
+                    //    break;
+                    //}
+                    overlaps[m].Offset = offset;  // File seek by this parameter.
                     if (!ReadFile(hFile, lpBuffer, blockSize, &returns[m], &overlaps[m]))
                     {
-                        readError = TRUE;
-                        break;
+                        //readError = TRUE;      // Status ignored because asynchronous termination.
+                        //break;
                     }
                     index++;
                     if (readError) break;
@@ -3613,16 +3613,16 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
                     }
                     LONG offset = d.blockIndex * blockSize;
                     BYTE* lpBuffer = reinterpret_cast<BYTE*>(fileData) + offset;
-                    if (SetFilePointer(hFile, offset, nullptr, FILE_BEGIN) != offset)
-                    {
-                        writeError = TRUE;
-                        break;
-                    }
-                    overlaps[m].Offset = offset;
+                    //if (SetFilePointer(hFile, offset, nullptr, FILE_BEGIN) != offset)
+                    //{
+                    //    writeError = TRUE;
+                    //    break;
+                    //}
+                    overlaps[m].Offset = offset;  // File seek by this parameter.
                     if (!WriteFile(hFile, lpBuffer, blockSize, &returns[m], &overlaps[m]))
                     {
-                        writeError = TRUE;
-                        break;
+                        //writeError = TRUE;      // Status ignored because asynchronous termination.
+                        //break;
                     }
                     index++;
                     if (writeError) break;
