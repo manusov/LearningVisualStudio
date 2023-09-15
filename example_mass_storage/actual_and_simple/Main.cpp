@@ -14,16 +14,19 @@ TODO.
 5)  + Check support RDRAND instruction by CPUID instruction. At procedure void correctAfterParse().
 6)  + Support wait times options before read, write and copy.
 7)  + Errors handling, visual OS error code by existing helper. Restore state when return. After return from RunTask(). Use RETURN_NAMES[].
-8)  Add scenarios with I/O queues, especially for IOPS, especially at multithread test. Enumerate as IOPS_QUEUED.
-9)  Support procedures: void resetBeforeParse(), void correctAfterParse(). Check all options.
-10) Error message and exit if wrong options (instead default scenario).
-11) Close file group than measure integral time (?)
-12) Extended verification by compare read data and write data.
-13) Wait key option: wait after actions.
-14) Report option: file and/or console.
-15) Support all other options.
-16) Re-verify all options settings support.
-17) Compare with NIOBench for some types of disks.
+8)  Add support maxCpu, maxDomain and min-max ranges. Yet only minCpu, minDomain supported.
+9)  Add check affinity mask validity.
+10) Add support >64 logical processors by Processor Groups.
+11) Add scenarios with I/O queues, especially for IOPS, especially at multithread test. Enumerate as IOPS_QUEUED.
+12) Support procedures: void resetBeforeParse(), void correctAfterParse(). Check all options.
+13) Error message and exit if wrong options (instead default scenario).
+14) Close file group than measure integral time (?)
+15) Extended verification by compare read data and write data.
+16) Wait key option: wait after actions.
+17) Report option: file and/or console.
+18) Support all other options.
+19) Re-verify all options settings support.
+20) Compare with NIOBench for some types of disks.
 
 */
 
@@ -124,7 +127,10 @@ typedef enum
     NO_ERRORS,
     TIMER_FAILED,
     MEMORY_ALLOCATION_FAILED,
+    MEMORY_NUMA_ALLOCATION_FAILED,
     MEMORY_RELEASE_FAILED,
+    SET_CPU_AFFINITY_FAILED,
+    RESTORE_CPU_AFFINITY_FAILED,
     FILE_CREATE_FAILED,
     FILE_OPEN_FAILED,
     FILE_WRITE_FAILED,
@@ -143,7 +149,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.09";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.10";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -195,12 +201,12 @@ namespace APPCONST
     constexpr DWORD32 DEFAULT_QUEUE_DEPTH = 1;
     constexpr DWORD32 DEFAULT_THREAD_COUNT = 1;
     constexpr PAGING_TYPE DEFAULT_PAGING_TYPE = STANDARD_PAGES;
-    constexpr BOOL DEFAULT_NUMA_DOMAIN_SELECT = FALSE;
-    constexpr BOOL DEFAULT_PROCESSOR_SELECT = FALSE;
+    constexpr DWORD DEFAULT_CPU_SELECT = -1;
+    constexpr DWORD DEFAULT_DOMAIN_SELECT = -1;
     const DWORD64 RANDOM_SEED = 3;
     const DWORD64 RANDOM_MULTIPLIER = 0x00DEECE66D;
     const DWORD64 RANDOM_ADDEND = 0x0B;
-    const DWORD WAIT_LIMIT = 60000;
+    const DWORD WAIT_LIMIT = 600000;     // 10 minutes maximum timeout.
 }
 
 // Command line parameters parse control.
@@ -223,7 +229,10 @@ const char* RETURN_NAMES[]
     "NO ERRORS",
     "TIMER FAILED",
     "MEMORY ALLOCATION FAILED",
+    "MEMORY NUMA ALLOCATION FAILED",
     "MEMORY RELEASE FAILED",
+    "SET CPU AFFINITY FAILED",
+    "RESTORE CPU AFFINITY FAILED",
     "FILE CREATE FAILED",
     "FILE_OPEN_FAILED",
     "FILE WRITE FAILED",
@@ -259,10 +268,10 @@ const OPTION_ENTRY options[] = {
 //  { "largepages"      , nullptr         , &parms.optionLargePages  , INTPARM } ,
 //  { "numa"            , keysNuma        , &parms.optionNuma        , SELPARM } ,
 //  { "pgroups"         , keysPgroups     , &parms.optionPgroups     , SELPARM } ,
-//  { "mincpu"          , nullptr         , &parms.optionMinCpu      , INTPARM } ,
-//  { "maxcpu"          , nullptr         , &parms.optionMaxCpu      , INTPARM } ,
-//  { "mindomain"       , nullptr         , &parms.optionMinDomain   , INTPARM } ,
-//  { "maxdomain"       , nullptr         , &parms.optionMaxDomain   , INTPARM } ,
+    { "mincpu"          , nullptr         , &parms.optionMinCpu      , INTPARM } ,
+    { "maxcpu"          , nullptr         , &parms.optionMaxCpu      , INTPARM } ,
+    { "mindomain"       , nullptr         , &parms.optionMinDomain   , INTPARM } ,
+    { "maxdomain"       , nullptr         , &parms.optionMaxDomain   , INTPARM } ,
     { nullptr           , nullptr         , nullptr                  , NOPARM  }
 };
 // Color console control.
@@ -316,9 +325,12 @@ void waitTime(char* msg, DWORD milliseconds, const char* operationName);
 void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode);
 void buildData(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, LPVOID fileData, DWORD32 fileSize);
 void buildAddress(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, std::vector<IO_DESCRIPTOR> &list, unsigned int blocksPerFile, unsigned int fileCount);
+bool ioDescriptorComparator(IO_DESCRIPTOR d1, IO_DESCRIPTOR d2);
 BOOL createEvents(char* msg, std::vector<HANDLE> &events, std::vector<OVERLAPPED> &overlaps, std::vector<DWORD> &returns, unsigned int count);
 BOOL closeEvents(std::vector<HANDLE> &events);
-bool ioDescriptorComparator(IO_DESCRIPTOR d1, IO_DESCRIPTOR d2);
+STATUS_CODES openContext(DWORD fileSize, DWORD minCpu, DWORD maxCpu, DWORD minDomain, DWORD maxDomain, LPVOID& fileData, DWORD_PTR& previousAffinity);
+STATUS_CODES closeContext(STATUS_CODES operationStatus, LPVOID fileData, DWORD_PTR previousAffinity);
+// Target operations.
 int runTaskMBPS(COMMAND_LINE_PARMS* p);
 int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p);
 int runTaskIOPS(COMMAND_LINE_PARMS* p);
@@ -540,6 +552,10 @@ void resetBeforeParse()                     // Reset options (structure with com
     p->optionWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
     p->optionWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
     p->optionQueue = APPCONST::DEFAULT_QUEUE_DEPTH;
+    p->optionMinCpu = APPCONST::DEFAULT_CPU_SELECT;
+    p->optionMaxCpu = APPCONST::DEFAULT_CPU_SELECT;
+    p->optionMinDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    p->optionMaxDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
 }
 #define RDRAND_MASK 0x40000000
 void correctAfterParse()                    // Verify options structure (reserved).
@@ -1488,6 +1504,10 @@ void buildAddress(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, std::vector<IO_
     }
     std::sort(list.begin(), list.end(), ioDescriptorComparator);
 }
+bool ioDescriptorComparator(IO_DESCRIPTOR d1, IO_DESCRIPTOR d2)
+{
+    return d1.random < d2.random;
+}
 BOOL createEvents(char* msg, std::vector<HANDLE> &events, std::vector<OVERLAPPED>& overlaps, std::vector<DWORD>& returns, unsigned int count)
 {
     BOOL status = TRUE;
@@ -1532,9 +1552,59 @@ BOOL closeEvents(std::vector<HANDLE> &events)
     }
     return status;
 }
-bool ioDescriptorComparator(IO_DESCRIPTOR d1, IO_DESCRIPTOR d2)
+STATUS_CODES openContext(DWORD fileSize, DWORD minCpu, DWORD maxCpu, DWORD minDomain, DWORD maxDomain, LPVOID& fileData, DWORD_PTR& previousAffinity)
 {
-    return d1.random < d2.random;
+    STATUS_CODES statusCode = NO_ERRORS;
+    // Memory allocation.
+    // TODO. Support minDomain-maxDomain range required. Yet minDomain only used, single domain only.
+    if (minDomain != APPCONST::DEFAULT_DOMAIN_SELECT)
+    {
+        fileData = VirtualAllocExNuma(GetCurrentProcess(), nullptr, fileSize, MEM_RESERVE + MEM_COMMIT, PAGE_READWRITE, minDomain);
+        if (!fileData) statusCode = MEMORY_NUMA_ALLOCATION_FAILED;
+    }
+    else
+    {
+        fileData = VirtualAllocEx(GetCurrentProcess(), nullptr, fileSize, MEM_RESERVE + MEM_COMMIT, PAGE_READWRITE);
+        if (!fileData) statusCode = MEMORY_ALLOCATION_FAILED;
+    }
+    // Set thread affinity.
+    // TODO. Support minCpu-maxCpu range required. Yet minCpu only used, single logical CPU only.
+    // TODO. Check affinity mask validity.
+    // TODO. Support >64 logical processors by Processor Groups.
+    if ((statusCode == NO_ERRORS) && (minCpu != APPCONST::DEFAULT_CPU_SELECT))
+    {
+        {
+            DWORD_PTR mask = 1;
+            mask = mask << minCpu;
+            previousAffinity = SetThreadAffinityMask(GetCurrentThread(), mask);
+            if (!previousAffinity)
+            {
+                statusCode = SET_CPU_AFFINITY_FAILED;
+            }
+        }
+    }
+    return statusCode;
+}
+STATUS_CODES closeContext(STATUS_CODES operationStatus, LPVOID fileData, DWORD_PTR previousAffinity)
+{
+    STATUS_CODES statusCode = operationStatus;
+    if (previousAffinity)
+    {
+        DWORD_PTR statusAffinity = SetThreadAffinityMask(GetCurrentThread(), previousAffinity);
+        if ((statusCode != NO_ERRORS) && (!statusAffinity)) statusCode = RESTORE_CPU_AFFINITY_FAILED;
+    }
+    if (!fileData)
+    {
+        if(statusCode != NO_ERRORS) statusCode = MEMORY_RELEASE_FAILED;
+    }
+    else
+    {
+        if (!VirtualFreeEx(GetCurrentProcess(), fileData, 0, MEM_RELEASE))
+        {
+            if (statusCode != NO_ERRORS) statusCode = MEMORY_RELEASE_FAILED;
+        }
+    }
+    return statusCode;
 }
 int runTaskMBPS(COMMAND_LINE_PARMS* p)
 {
@@ -1557,6 +1627,10 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     DWORD32 msWaitRead = APPCONST::DEFAULT_WAIT_READ;
     DWORD32 msWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
     DWORD32 msWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
+    DWORD32 minCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 maxCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 minDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    DWORD32 maxDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
     // If input parameters structure passed, load parameters from this structure.
     if (p)
     {
@@ -1574,6 +1648,10 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
         msWaitRead = p->optionWaitRead;
         msWaitWrite = p->optionWaitWrite;
         msWaitCopy = p->optionWaitCopy;
+        minCpu = p->optionMinCpu;
+        maxCpu = p->optionMaxCpu;
+        minDomain = p->optionMinDomain;
+        maxDomain = p->optionMaxDomain;
     }
     // Initializing variables for read, write and copy total sizes verification.
     DWORD64 totalRead = 0;
@@ -1590,9 +1668,14 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     double us = 1.0 / MHz;
     snprintf(msg, APPCONST::MAX_TEXT_STRING, "Performance frequency %.3f MHz, period %.3f microseconds.", MHz, us);
     write(msg);
-    // Allocate memory for file I/O buffer.
-    LPVOID fileData = VirtualAlloc(nullptr, fileSize, MEM_RESERVE + MEM_COMMIT, PAGE_READWRITE);
-    if (!fileData) return MEMORY_ALLOCATION_FAILED;
+    // Allocate memory for file I/O buffer, set CPU affinity and NUMA domain if required by scenario options settings.
+    LPVOID fileData = nullptr;
+    DWORD_PTR previousAffinity = 0;
+    STATUS_CODES retStatus = openContext(fileSize, minCpu, maxCpu, minDomain, maxDomain, fileData, previousAffinity);
+    if (retStatus != NO_ERRORS)
+    {
+        return closeContext(retStatus, fileData, previousAffinity);
+    }
     write("\r\nMemory allocated, ");
     storeBaseAndSize(msg, APPCONST::MAX_TEXT_STRING, (DWORD64)fileData, (DWORD64)fileSize);
     write(msg);
@@ -1667,8 +1750,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (createError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_CREATE_FAILED;
+        return closeContext(FILE_CREATE_FAILED, fileData, previousAffinity);
     }
     // Initializing for timings measurements.
     LARGE_INTEGER t1, t2, t3, t4;
@@ -1689,16 +1771,14 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     // Start cycle for write source files (re-positioning file pointer required because repeats).
@@ -1764,8 +1844,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -1777,8 +1856,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (writeError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_WRITE_FAILED;
+        return closeContext(FILE_WRITE_FAILED, fileData, previousAffinity);
     }
     // Initializing for copy source files to destination files (re-positioning required for source files after it writes).
     std::vector<double> copySpeed;
@@ -1794,16 +1872,14 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of copy files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     // Start cycle for copy files  (re-positioning file pointer required because repeats).
@@ -1915,8 +1991,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of copy files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -1928,8 +2003,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (copyError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_COPY_FAILED;
+        return closeContext(FILE_COPY_FAILED, fileData, previousAffinity);
     }
     // Initializing for read source files (re-positioning required for source files after it copy).
     std::vector<double> readSpeed;
@@ -1945,16 +2019,14 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of read files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     // Read source files - start read cycle  (re-positioning file pointer required because repeats).
@@ -2019,8 +2091,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of read source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -2032,8 +2103,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (readError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_READ_FAILED;
+        return closeContext(FILE_READ_FAILED, fileData, previousAffinity);
     }
     // Close and delete files.
     writeColor("\r\n Delete files.\r\n", APPCONST::VALUE_COLOR);
@@ -2063,8 +2133,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (deleteError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_DELETE_FAILED;
+        return closeContext(FILE_DELETE_FAILED, fileData, previousAffinity);
     }
     // Verify total read, write and copy sizes: compare returned by WinAPI and calculated values.
     if ((totalBytes > 0) && 
@@ -2093,14 +2162,10 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
         writeColor(msg, APPCONST::TABLE_COLOR);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Copy write = %016llXh.\r\n", totalCopyWrite);
         writeColor(msg, APPCONST::TABLE_COLOR);
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_SIZE_MISMATCH;
+        return closeContext(FILE_SIZE_MISMATCH, fileData, previousAffinity);
     }
     // Done, release resources and return.
-    status = FALSE;
-    if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
-    if (!status) return MEMORY_RELEASE_FAILED;
-    return NO_ERRORS;
+    return closeContext(NO_ERRORS, fileData, previousAffinity);
 }
 int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
 {
@@ -2123,6 +2188,10 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     DWORD32 msWaitRead = APPCONST::DEFAULT_WAIT_READ;
     DWORD32 msWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
     DWORD32 msWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
+    DWORD32 minCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 maxCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 minDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    DWORD32 maxDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
     // If input parameters structure passed, load parameters from this structure.
     if (p)
     {
@@ -2140,6 +2209,10 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
         msWaitRead = p->optionWaitRead;
         msWaitWrite = p->optionWaitWrite;
         msWaitCopy = p->optionWaitCopy;
+        minCpu = p->optionMinCpu;
+        maxCpu = p->optionMaxCpu;
+        minDomain = p->optionMinDomain;
+        maxDomain = p->optionMaxDomain;
     }
     // Initializing variables for read, write and copy total sizes verification.
     DWORD64 totalRead = 0;
@@ -2156,9 +2229,14 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     double us = 1.0 / MHz;
     snprintf(msg, APPCONST::MAX_TEXT_STRING, "Performance frequency %.3f MHz, period %.3f microseconds.", MHz, us);
     write(msg);
-    // Allocate memory for file I/O buffer.
-    LPVOID fileData = VirtualAlloc(nullptr, fileSize, MEM_RESERVE + MEM_COMMIT, PAGE_READWRITE);
-    if (!fileData) return MEMORY_ALLOCATION_FAILED;
+    // Allocate memory for file I/O buffer, set CPU affinity and NUMA domain if required by scenario options settings.
+    LPVOID fileData = nullptr;
+    DWORD_PTR previousAffinity = 0;
+    STATUS_CODES retStatus = openContext(fileSize, minCpu, maxCpu, minDomain, maxDomain, fileData, previousAffinity);
+    if (retStatus != NO_ERRORS)
+    {
+        return closeContext(retStatus, fileData, previousAffinity);
+    }
     write("\r\nMemory allocated, ");
     storeBaseAndSize(msg, APPCONST::MAX_TEXT_STRING, (DWORD64)fileData, (DWORD64)fileSize);
     write(msg);
@@ -2216,8 +2294,7 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (createError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_CREATE_FAILED;
+        return closeContext(FILE_CREATE_FAILED, fileData, previousAffinity);
     }
     // Initializing for timings measurements.
     LARGE_INTEGER t1, t2, t3, t4;
@@ -2229,7 +2306,6 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     std::vector<double> copySpeed;
     std::vector<double> readSpeed;
     double speedIntegral = 0.0;
-
     // Table up for WRITE, COPY, READ operations.
     writeColor("\r\n Write, Copy, Read file performance.\r\n", APPCONST::VALUE_COLOR);
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
@@ -2241,16 +2317,14 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     // Start cycle for write, copy, read files.
@@ -2472,8 +2546,7 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -2485,13 +2558,12 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (writeError || copyError || readError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
         if (writeError)
-            return FILE_WRITE_FAILED;
+            return closeContext(FILE_WRITE_FAILED, fileData, previousAffinity);
         else if (copyError)
-            return FILE_COPY_FAILED;
+            return closeContext(FILE_COPY_FAILED, fileData, previousAffinity);
         else
-            return FILE_READ_FAILED;
+            return closeContext(FILE_READ_FAILED, fileData, previousAffinity);
     }
     // Close and delete files.
     writeColor("\r\n Delete files.\r\n", APPCONST::VALUE_COLOR);
@@ -2515,8 +2587,7 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (deleteError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_DELETE_FAILED;
+        return closeContext(FILE_DELETE_FAILED, fileData, previousAffinity);
     }
     // Verify total read, write and copy sizes: compare returned by WinAPI and calculated values.
     if ((totalBytes > 0) &&
@@ -2545,14 +2616,10 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
         writeColor(msg, APPCONST::TABLE_COLOR);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Copy write = %016llXh.\r\n", totalCopyWrite);
         writeColor(msg, APPCONST::TABLE_COLOR);
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_SIZE_MISMATCH;
+        return closeContext(FILE_SIZE_MISMATCH, fileData, previousAffinity);
     }
     // Done, release resources and return.
-    status = FALSE;
-    if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
-    if (!status) return MEMORY_RELEASE_FAILED;
-    return NO_ERRORS;
+    return closeContext(NO_ERRORS, fileData, previousAffinity);
 }
 int runTaskIOPS(COMMAND_LINE_PARMS* p)
 {
@@ -2576,6 +2643,10 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     DWORD32 msWaitRead = APPCONST::DEFAULT_WAIT_READ;
     DWORD32 msWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
     DWORD32 msWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
+    DWORD32 minCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 maxCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 minDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    DWORD32 maxDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
     // If input parameters structure passed, load parameters from this structure.
     if (p)
     {
@@ -2593,6 +2664,10 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
         msWaitRead = p->optionWaitRead;
         msWaitWrite = p->optionWaitWrite;
         msWaitCopy = p->optionWaitCopy;
+        minCpu = p->optionMinCpu;
+        maxCpu = p->optionMaxCpu;
+        minDomain = p->optionMinDomain;
+        maxDomain = p->optionMaxDomain;
     }
     // Initializing variables for read, write and copy total sizes verification.
     DWORD64 totalRead = 0;
@@ -2609,9 +2684,14 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     double us = 1.0 / MHz;
     snprintf(msg, APPCONST::MAX_TEXT_STRING, "Performance frequency %.3f MHz, period %.3f microseconds.", MHz, us);
     write(msg);
-    // Allocate memory for file I/O buffer.
-    LPVOID fileData = VirtualAlloc(nullptr, fileSize, MEM_RESERVE + MEM_COMMIT, PAGE_READWRITE);
-    if (!fileData) return MEMORY_ALLOCATION_FAILED;
+    // Allocate memory for file I/O buffer, set CPU affinity and NUMA domain if required by scenario options settings.
+    LPVOID fileData = nullptr;
+    DWORD_PTR previousAffinity = 0;
+    STATUS_CODES retStatus = openContext(fileSize, minCpu, maxCpu, minDomain, maxDomain, fileData, previousAffinity);
+    if (retStatus != NO_ERRORS)
+    {
+        return closeContext(retStatus, fileData, previousAffinity);
+    }
     write("\r\nBuffer memory allocated, ");
     storeBaseAndSize(msg, APPCONST::MAX_TEXT_STRING, (DWORD64)fileData, (DWORD64)fileSize);
     write(msg);
@@ -2686,8 +2766,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (createError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_CREATE_FAILED;
+        return closeContext(FILE_CREATE_FAILED, fileData, previousAffinity);
     }
     // Initializing for timings measurements.
     LARGE_INTEGER t1, t2, t3, t4;
@@ -2706,16 +2785,14 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     // Start cycle for service write source files.
@@ -2782,8 +2859,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of service write files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -2795,8 +2871,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (writeError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_WRITE_FAILED;
+        return closeContext(FILE_WRITE_FAILED, fileData, previousAffinity);
     }
     // Re-open source and destination files.
     writeColor("\r\n Re-open files.\r\n", APPCONST::VALUE_COLOR);
@@ -2855,8 +2930,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (openError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_OPEN_FAILED;
+        return closeContext(FILE_OPEN_FAILED, fileData, previousAffinity);
     }
     // Initializing I/O list for random access files and blocks.
     std::vector<IO_DESCRIPTOR> list;
@@ -2874,16 +2948,14 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of read IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     unsigned int index = 0;
@@ -2948,8 +3020,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of read IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -2961,8 +3032,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (readError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_READ_FAILED;
+        return closeContext(FILE_READ_FAILED, fileData, previousAffinity);
     }
     // IOPS measurement for WRITE, both source and destination files zones (read any).
     std::vector<double> writeIops;
@@ -2976,16 +3046,14 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of write IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     index = 0;
@@ -3050,8 +3118,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of read IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -3063,8 +3130,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (writeError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_WRITE_FAILED;
+        return closeContext(FILE_WRITE_FAILED, fileData, previousAffinity);
     }
     // RESERVED: IOPS measurement for copy, from source to destination files zones (read src, write dst).
     // RESERVED: IOPS measurement for copy, both source and destination files zones (read any, write any).
@@ -3096,8 +3162,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (deleteError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_DELETE_FAILED;
+        return closeContext(FILE_DELETE_FAILED, fileData, previousAffinity);
     }
     // Verify total read, write and copy sizes: compare returned by WinAPI and calculated values.
 //  if ((totalBytes > 0) &&
@@ -3128,14 +3193,10 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
         writeColor(msg, APPCONST::TABLE_COLOR);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Copy write = %016llXh.\r\n", totalCopyWrite);
         writeColor(msg, APPCONST::TABLE_COLOR);
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_SIZE_MISMATCH;
+        return closeContext(FILE_SIZE_MISMATCH, fileData, previousAffinity);
     }
     // Done, release resources and return.
-    status = FALSE;
-    if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
-    if (!status) return MEMORY_RELEASE_FAILED;
-    return NO_ERRORS;
+    return closeContext(NO_ERRORS, fileData, previousAffinity);
 }
 int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
 {
@@ -3159,6 +3220,10 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     DWORD32 msWaitRead = APPCONST::DEFAULT_WAIT_READ;
     DWORD32 msWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
     DWORD32 msWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
+    DWORD32 minCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 maxCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 minDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    DWORD32 maxDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
     DWORD32 queueDepth = APPCONST::DEFAULT_QUEUE_DEPTH;
     // If input parameters structure passed, load parameters from this structure.
     if (p)
@@ -3178,6 +3243,10 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
         msWaitWrite = p->optionWaitWrite;
         msWaitCopy = p->optionWaitCopy;
         queueDepth = p->optionQueue;
+        minCpu = p->optionMinCpu;
+        maxCpu = p->optionMaxCpu;
+        minDomain = p->optionMinDomain;
+        maxDomain = p->optionMaxDomain;
     }
     // Initializing variables for read, write and copy total sizes verification.
     DWORD64 totalRead = 0;
@@ -3194,9 +3263,14 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     double us = 1.0 / MHz;
     snprintf(msg, APPCONST::MAX_TEXT_STRING, "Performance frequency %.3f MHz, period %.3f microseconds.", MHz, us);
     write(msg);
-    // Allocate memory for file I/O buffer.
-    LPVOID fileData = VirtualAlloc(nullptr, fileSize, MEM_RESERVE + MEM_COMMIT, PAGE_READWRITE);
-    if (!fileData) return MEMORY_ALLOCATION_FAILED;
+    // Allocate memory for file I/O buffer, set CPU affinity and NUMA domain if required by scenario options settings.
+    LPVOID fileData = nullptr;
+    DWORD_PTR previousAffinity = 0;
+    STATUS_CODES retStatus = openContext(fileSize, minCpu, maxCpu, minDomain, maxDomain, fileData, previousAffinity);
+    if (retStatus != NO_ERRORS)
+    {
+        return closeContext(retStatus, fileData, previousAffinity);
+    }
     write("\r\nBuffer memory allocated, ");
     storeBaseAndSize(msg, APPCONST::MAX_TEXT_STRING, (DWORD64)fileData, (DWORD64)fileSize);
     write(msg);
@@ -3276,8 +3350,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (createError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_CREATE_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(FILE_CREATE_FAILED, fileData, previousAffinity);
     }
     // Initializing for timings measurements.
     LARGE_INTEGER t1, t2, t3, t4;
@@ -3296,16 +3370,16 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of write source files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            closeEvents(eventHandles);
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     // Start cycle for write source files.
@@ -3372,8 +3446,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of service write files.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -3385,8 +3459,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (writeError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_WRITE_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(FILE_WRITE_FAILED, fileData, previousAffinity);
     }
     // Re-open source and destination files.
     writeColor("\r\n Re-open files.\r\n", APPCONST::VALUE_COLOR);
@@ -3445,8 +3519,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (openError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_OPEN_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(FILE_OPEN_FAILED, fileData, previousAffinity);
     }
     // Initializing I/O list for random access files and blocks.
     std::vector<IO_DESCRIPTOR> list;
@@ -3464,16 +3538,16 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of read IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            closeEvents(eventHandles);
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     unsigned int index = 0;
@@ -3545,8 +3619,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of read IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -3558,8 +3632,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (readError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_READ_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(FILE_READ_FAILED, fileData, previousAffinity);
     }
     // IOPS measurement for WRITE, both source and destination files zones (read any).
     std::vector<double> writeIops;
@@ -3573,16 +3647,16 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     // Start timer for integral time of write IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     t2.QuadPart = t1.QuadPart;
     while (t2.QuadPart == t1.QuadPart)
     {
         if (!QueryPerformanceCounter(&t2))
         {
-            if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-            return TIMER_FAILED;
+            closeEvents(eventHandles);
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
         }
     }
     index = 0;
@@ -3654,8 +3728,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     // Stop timer for integral time of write IOPS.
     if (!QueryPerformanceCounter(&t1))
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return TIMER_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     else
     {
@@ -3667,8 +3741,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (readError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_READ_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
     }
     // RESERVED: IOPS measurement for copy, from source to destination files zones (read src, write dst).
     // RESERVED: IOPS measurement for copy, both source and destination files zones (read any, write any).
@@ -3700,8 +3774,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
     if (deleteError)
     {
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_DELETE_FAILED;
+        closeEvents(eventHandles);
+        return closeContext(FILE_DELETE_FAILED, fileData, previousAffinity);
     }
     // Verify total read, write and copy sizes: compare returned by WinAPI and calculated values.
 //  if ((totalBytes > 0) &&
@@ -3732,14 +3806,9 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
         writeColor(msg, APPCONST::TABLE_COLOR);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Copy write = %016llXh.\r\n", totalCopyWrite);
         writeColor(msg, APPCONST::TABLE_COLOR);
-        if (fileData) VirtualFree(fileData, 0, MEM_RELEASE);
-        return FILE_SIZE_MISMATCH;
+        closeEvents(eventHandles);
+        return closeContext(FILE_SIZE_MISMATCH, fileData, previousAffinity);
     }
     // Done, release resources and return.
-    status = FALSE;
-    if (fileData) status = VirtualFree(fileData, 0, MEM_RELEASE);
-    BOOL status1 = closeEvents(eventHandles);
-    if (!status) return MEMORY_RELEASE_FAILED;
-    if (!status1) return EVENT_CLOSE_FAILED;
-    return NO_ERRORS;
+    return closeContext(NO_ERRORS, fileData, previousAffinity);
 }

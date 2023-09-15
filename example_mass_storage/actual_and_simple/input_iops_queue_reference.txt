@@ -14,6 +14,11 @@ waitwrite  = 10000
 ; waitcopy   = 3000
 queue      = 16
 
+; mincpu     = 0
+; maxcpu     = 0
+; mindomain  = 0
+; maxdomain  = 0
+
 ; UNDER CONSTRUCTION OPTIONS.
 ; threads    = 1
 ; ht         = default
