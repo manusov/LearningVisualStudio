@@ -105,8 +105,10 @@ typedef enum
 {
     MBPS,
     MBPS_ONE_FILE,
+    MBPS_MAP,
     IOPS,
-    IOPS_QUEUED
+    IOPS_QUEUED,
+    IOPS_MAP
     
 }  A_TYPE;
 typedef enum
@@ -140,7 +142,13 @@ typedef enum
     FILE_SIZE_MISMATCH,
     EVENT_CREATE_FAILED,
     EVENT_CLOSE_FAILED,
+    FILE_MAPPING_CREATE_FAILED,
+    MAP_VIEW_OF_FILE_FAILED,
+    FLUSH_VIEW_OF_FILE_FAILED,
+    UNMAP_VIEW_OF_FILE_FAILED,
+    HANDLE_CLOSE_FAILED,
     INTERNAL_ERROR,
+    FUNCTION_UNDER_CONSTRUCTION,
     STATUS_MAX
 }  STATUS_CODES;
 
@@ -149,7 +157,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.10";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.11";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -207,11 +215,12 @@ namespace APPCONST
     const DWORD64 RANDOM_MULTIPLIER = 0x00DEECE66D;
     const DWORD64 RANDOM_ADDEND = 0x0B;
     const DWORD WAIT_LIMIT = 600000;     // 10 minutes maximum timeout.
+    const DWORD PAGE_WALK_STEP = 4096;
 }
 
 // Command line parameters parse control.
 // Strings for command line options detect.
-const char* keysAddress[] = { "mbps", "mbpsone", "iops", "iopsqueue", nullptr};
+const char* keysAddress[] = { "mbps", "mbpsone", "mbpsmap", "iops", "iopsqueue", "iopsmap", nullptr};
 const char* keysData[] = { "zeroes", "ones", "inc", "softrnd", "hardrnd", nullptr };
 const char* keysHt[] = { "default", "off", "on", nullptr };
 const char* keysNuma[] = { "unaware", "single", "optimal", "nonoptimal", nullptr };
@@ -242,7 +251,13 @@ const char* RETURN_NAMES[]
     "FILE SIZE MISMATCH",
     "EVENT CREATE FAILED",
     "EVENT CLOSE FAILED",
-    "INTERNAL ERROR"
+    "FILE MAPPING CREATE FAILED",
+    "MAP VIEW OF FILE FAILED",
+    "FLUSH VIEW OF FILE FAILED",
+    "UNMAP VIEW OF FILE FAILED",
+    "HANDLE CLOSE FAILED",
+    "INTERNAL ERROR",
+    "FUNCTION IS UNDER CONSTRUCTION",
 };
 // Pointer command line parameters structure.
 COMMAND_LINE_PARMS parms;
@@ -321,6 +336,7 @@ void colorHelper(WORD color);
 void colorRestoreHelper();
 void cellPrintHelper(char* buffer, size_t limit, size_t cell, size_t count);
 // Target operation-specific tasks.
+DWORD64 getHandle64(HANDLE handle);
 void waitTime(char* msg, DWORD milliseconds, const char* operationName);
 void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode);
 void buildData(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, LPVOID fileData, DWORD32 fileSize);
@@ -333,8 +349,10 @@ STATUS_CODES closeContext(STATUS_CODES operationStatus, LPVOID fileData, DWORD_P
 // Target operations.
 int runTaskMBPS(COMMAND_LINE_PARMS* p);
 int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p);
+int runTaskMBPSmap(COMMAND_LINE_PARMS* p);
 int runTaskIOPS(COMMAND_LINE_PARMS* p);
 int runTaskIOPSqueued(COMMAND_LINE_PARMS* p);
+int runTaskIOPSmap(COMMAND_LINE_PARMS* p);
 
 // Application entry point.
 int main(int argc, char** argv)
@@ -447,11 +465,17 @@ int main(int argc, char** argv)
             case MBPS_ONE_FILE:
                 opStatus = runTaskMBPSoneFile(pCommandLineParms);
                 break;
+            case MBPS_MAP:
+                opStatus = runTaskMBPSmap(pCommandLineParms);
+                break;
             case IOPS:
                 opStatus = runTaskIOPS(pCommandLineParms);
                 break;
             case IOPS_QUEUED:
                 opStatus = runTaskIOPSqueued(pCommandLineParms);
+                break;
+            case IOPS_MAP:
+                opStatus = runTaskIOPSmap(pCommandLineParms);
                 break;
             default:
                 opStatus = INTERNAL_ERROR;
@@ -1352,6 +1376,15 @@ void cellPrintHelper(char* buffer, size_t limit, size_t cell, size_t count)
     }
 }
 // Target operation-specific tasks (measure storage performance in this application).
+DWORD64 getHandle64(HANDLE handle)
+{
+#ifdef NATIVE_WIDTH_64
+    DWORD64 numHandle = (DWORD64)handle;
+#else
+    DWORD64 numHandle = (DWORD64)((DWORD32)handle);
+#endif
+    return numHandle;
+}
 void waitTime(char* msg, DWORD milliseconds, const char* operationName)
 {
     if (milliseconds)
@@ -1699,11 +1732,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
         if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
         if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
         HANDLE handle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-        DWORD64 numHandle = (DWORD64)handle;
-#else
-        DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+        DWORD64 numHandle = getHandle64(handle);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
         write(msg);
         if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -1728,11 +1757,7 @@ int runTaskMBPS(COMMAND_LINE_PARMS* p)
             if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
             if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
             HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-            DWORD64 numHandle = (DWORD64)handle;
-#else
-            DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+            DWORD64 numHandle = getHandle64(handle);
             snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
             write(msg);
             if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -2257,11 +2282,7 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
     if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
     HANDLE srcHandle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-    DWORD64 numHandle = (DWORD64)srcHandle;
-#else
-    DWORD64 numHandle = (DWORD64)((DWORD32)srcHandle);
-#endif
+    DWORD64 numHandle = getHandle64(srcHandle);
     snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", 0, numHandle, path);
     write(msg);
     if ((srcHandle == NULL) || (srcHandle == INVALID_HANDLE_VALUE))
@@ -2278,11 +2299,7 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
         if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
         if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
         dstHandle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-        DWORD64 numHandle = (DWORD64)dstHandle;
-#else
-        DWORD64 numHandle = (DWORD64)((DWORD32)dstHandle);
-#endif
+        DWORD64 numHandle = getHandle64(dstHandle);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", 0, numHandle, path);
         write(msg);
         if ((dstHandle == NULL) || (dstHandle == INVALID_HANDLE_VALUE))
@@ -2621,6 +2638,227 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     // Done, release resources and return.
     return closeContext(NO_ERRORS, fileData, previousAffinity);
 }
+int runTaskMBPSmap(COMMAND_LINE_PARMS* p)
+{
+    // (1) Initializing variables by constants.
+    char msg[APPCONST::MAX_TEXT_STRING];
+    const char* nameSrcPath = APPCONST::DEFAULT_PATH_SRC;
+    const char* nameDstPath = APPCONST::DEFAULT_PATH_DST;
+    const char* nameSrc = APPCONST::DEFAULT_NAME_SRC;
+    const char* nameDst = APPCONST::DEFAULT_NAME_DST;
+    const char* nameExt = APPCONST::DEFAULT_EXTENSION;
+    DWORD32 fileCount = APPCONST::DEFAULT_FILE_COUNT;
+    DWORD32 fileSize = APPCONST::DEFAULT_FILE_SIZE;
+    DWORD32 blockSize = APPCONST::DEFAULT_BLOCK_SIZE;
+    DWORD32 repeats = APPCONST::DEFAULT_REPEATS;
+    D_TYPE dataType = APPCONST::DEFAULT_DATA_TYPE;
+    A_TYPE addressType = APPCONST::DEFAULT_ADDRESS_TYPE;
+    BOOL flagNoBuffering = APPCONST::DEFAULT_FLAG_NO_BUFFERING;
+    BOOL flagWriteThrough = APPCONST::DEFAULT_FLAG_WRITE_THROUGH;
+    BOOL flagSequentalScan = APPCONST::DEFAULT_FLAG_SEQUENTIAL_SCAN;
+    DWORD32 msWaitRead = APPCONST::DEFAULT_WAIT_READ;
+    DWORD32 msWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
+    DWORD32 msWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
+    DWORD32 minCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 maxCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 minDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    DWORD32 maxDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    // (2) If input parameters structure passed, load parameters from this structure, override default constants.
+    if (p)
+    {
+        nameSrcPath = p->optionSrcPath;
+        nameDstPath = p->optionDstPath;
+        fileCount = p->optionFileCount;
+        fileSize = static_cast<DWORD32>(p->optionFileSize);
+        blockSize = static_cast<DWORD32>(p->optionBlockSize);
+        repeats = p->optionRepeats;
+        dataType = static_cast<D_TYPE>(p->optionData);
+        addressType = static_cast<A_TYPE>(p->optionAddress);
+        flagNoBuffering = p->optionNoBuf;
+        flagWriteThrough = p->optionWriteThr;
+        flagSequentalScan = p->optionSequental;
+        msWaitRead = p->optionWaitRead;
+        msWaitWrite = p->optionWaitWrite;
+        msWaitCopy = p->optionWaitCopy;
+        minCpu = p->optionMinCpu;
+        maxCpu = p->optionMaxCpu;
+        minDomain = p->optionMinDomain;
+        maxDomain = p->optionMaxDomain;
+    }
+    // (3) Initializing variables for read and write total sizes verification.
+    DWORD64 totalRead = 0;
+    DWORD64 totalWrite = 0;
+    DWORD64 totalBytes = (DWORD64)fileSize * (DWORD64)fileCount * (DWORD64)repeats;
+    // (4) Initializing timer (use OS performance counter).
+    LARGE_INTEGER hz;
+    BOOL status;
+    status = QueryPerformanceFrequency(&hz);
+    if ((!status) || (hz.QuadPart == 0)) return TIMER_FAILED;
+    double MHz = (hz.QuadPart) / 1000000.0;
+    double us = 1.0 / MHz;
+    snprintf(msg, APPCONST::MAX_TEXT_STRING, "Performance frequency %.3f MHz, period %.3f microseconds.\r\n", MHz, us);
+    write(msg);
+    LARGE_INTEGER t1, t2, t3, t4;
+    double timeUnitSeconds = 1.0 / hz.QuadPart;
+    double fileMegabytes = fileSize * repeats / 1000000.0;
+    double integralMegabytes = fileMegabytes * fileCount;
+    // (5) Create file.
+    char path[MAX_PATH];
+    snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, 0, nameExt);
+    DWORD attributes = FILE_ATTRIBUTE_NORMAL;
+    if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
+    if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
+    if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
+    HANDLE fileHandle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
+    if ((fileHandle != NULL) && (fileHandle != INVALID_HANDLE_VALUE))
+    {
+        DWORD64 numHandle = getHandle64(fileHandle);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Open file for write, handle = %016llXh, path = %s.\r\n", numHandle, path);
+        write(msg);
+    }
+    else
+    {
+        return FILE_CREATE_FAILED;
+    }
+    // (6) Create mapping object for file, message about mapping object handle.
+    HANDLE mapHandle = CreateFileMapping(fileHandle, nullptr, PAGE_READWRITE, 0, fileSize, nullptr);
+    if ((mapHandle != NULL) && (mapHandle != INVALID_HANDLE_VALUE))
+    { 
+        DWORD64 numHandle = getHandle64(mapHandle);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Mapping handle = %016llXh.\r\n", numHandle);
+        write(msg);
+    }
+    else
+    {
+        return FILE_MAPPING_CREATE_FAILED;
+    }
+    // (7) Mapping created object to address space, message about mapped buffer address.
+    LPVOID mapPointer = MapViewOfFile(mapHandle, FILE_MAP_WRITE, 0, 0, fileSize);
+    if ((mapPointer != NULL) && (mapPointer != INVALID_HANDLE_VALUE))
+    {
+        DWORD64 numPointer = getHandle64(mapPointer);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Mapping address = %016llXh.\r\n", numPointer);
+        write(msg);
+    }
+    else
+    {
+        return MAP_VIEW_OF_FILE_FAILED;
+    }
+    // (8) Fill mapped buffer.
+    waitTime(msg, msWaitWrite, "write");    // Wait before WRITE operation start, if selected by option.
+    writeColor(" Write and flush buffer.", APPCONST::VALUE_COLOR);
+    memset(mapPointer, 0, fileSize);
+    // (9) Flush mapped buffer to disk, this is WRITE operation, measure time, message about WRITE MBPS.
+    QueryPerformanceCounter(&t3);
+    BOOL flushStatus = (FlushViewOfFile(mapPointer, fileSize));
+    QueryPerformanceCounter(&t4);
+    if(flushStatus)
+    {
+        double seconds = (t4.QuadPart - t3.QuadPart) * timeUnitSeconds;
+        double mbps = fileMegabytes / seconds;
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " MBPS = %.3f.\r\n", mbps);
+        writeColor(msg, APPCONST::GROUP_COLOR);
+    }
+    else
+    {
+        return FLUSH_VIEW_OF_FILE_FAILED;
+    }
+    // (10) Close mapping object.
+    if (!CloseHandle(mapHandle))
+    {
+        return HANDLE_CLOSE_FAILED;
+    }
+    // (11) Close file.
+    if (!CloseHandle(fileHandle))
+    {
+        return HANDLE_CLOSE_FAILED;
+    }
+    // (12) Unmap view of file.
+    if (!UnmapViewOfFile(mapPointer))
+    {
+        return UNMAP_VIEW_OF_FILE_FAILED;
+    }
+    // (13) Re-Open file for read.
+    attributes = FILE_ATTRIBUTE_NORMAL;
+    if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
+    if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
+    if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
+    fileHandle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, attributes, nullptr);
+    if ((fileHandle != NULL) && (fileHandle != INVALID_HANDLE_VALUE))
+    {
+        DWORD64 numHandle = getHandle64(fileHandle);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nRe-open file for read, handle = %016llXh, path = %s.\r\n", numHandle, path);
+        write(msg);
+    }
+    else
+    {
+        return FILE_CREATE_FAILED;
+    }
+    // (14) Re-Create mapping object for file, message about mapping object handle.
+    mapHandle = CreateFileMapping(fileHandle, nullptr, PAGE_READWRITE, 0, fileSize, nullptr);
+    if ((mapHandle != NULL) && (mapHandle != INVALID_HANDLE_VALUE))
+    {
+        DWORD64 numHandle = getHandle64(mapHandle);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Mapping handle = %016llXh.\r\n", numHandle);
+        write(msg);
+    }
+    else
+    {
+        return FILE_MAPPING_CREATE_FAILED;
+    }
+    // (15) Mapping created object to address space, message about mapped buffer address.
+    mapPointer = MapViewOfFile(mapHandle, FILE_MAP_READ, 0, 0, fileSize);
+    if ((mapPointer != NULL) && (mapPointer != INVALID_HANDLE_VALUE))
+    {
+        DWORD64 numPointer = getHandle64(mapPointer);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Mapping address = %016llXh.\r\n", numPointer);
+        write(msg);
+    }
+    else
+    {
+        return MAP_VIEW_OF_FILE_FAILED;
+    }
+    // (16) Read buffer with loads from disk, this is READ operation, measure time, message about READ MBPS.
+    waitTime(msg, msWaitRead, "read");    // Wait before READ operation start, if selected by option.
+    writeColor(" Buffer page walk.", APPCONST::VALUE_COLOR);
+    int pageWalkCount = fileSize / APPCONST::PAGE_WALK_STEP;
+    DWORD* pageWalkAddress = reinterpret_cast<DWORD*>(mapPointer);
+    size_t pageWalkIncrement = APPCONST::PAGE_WALK_STEP / sizeof(DWORD);
+    DWORD pageWalkData = 0;
+    QueryPerformanceCounter(&t3);
+    for (int i = 0; i < pageWalkCount; i++)
+    {
+        pageWalkData += *pageWalkAddress;
+        pageWalkAddress += pageWalkIncrement;
+    }
+    QueryPerformanceCounter(&t4);
+    double seconds = (t4.QuadPart - t3.QuadPart) * timeUnitSeconds;
+    double mbps = fileMegabytes / seconds;
+    snprintf(msg, APPCONST::MAX_TEXT_STRING, " MBPS = %.3f (%d).\r\n", mbps, pageWalkData);
+    writeColor(msg, APPCONST::GROUP_COLOR);
+    // (17) Close mapping object.
+    if (!CloseHandle(mapHandle))
+    {
+        return HANDLE_CLOSE_FAILED;
+    }
+    // (18) Close file.
+    if (!CloseHandle(fileHandle))
+    {
+        return HANDLE_CLOSE_FAILED;
+    }
+    // (19) Unmap view of file.
+    if (!UnmapViewOfFile(mapPointer))
+    {
+        return UNMAP_VIEW_OF_FILE_FAILED;
+    }
+    // (20) Delete file.
+    if (!DeleteFile(path))
+    {
+        return FILE_DELETE_FAILED;
+    }
+    // (21) Done.
+    return FUNCTION_UNDER_CONSTRUCTION;
+}
 int runTaskIOPS(COMMAND_LINE_PARMS* p)
 {
     // Initializing variables by constants.
@@ -2715,11 +2953,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
         if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
         if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
         HANDLE handle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-        DWORD64 numHandle = (DWORD64)handle;
-#else
-        DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+        DWORD64 numHandle = getHandle64(handle);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
         write(msg);
         if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -2744,11 +2978,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
             if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
             if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
             HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-            DWORD64 numHandle = (DWORD64)handle;
-#else
-            DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+            DWORD64 numHandle = getHandle64(handle);
             snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
             write(msg);
             if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -2902,11 +3132,7 @@ int runTaskIOPS(COMMAND_LINE_PARMS* p)
         if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
         if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
         HANDLE handle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-        DWORD64 numHandle = (DWORD64)handle;
-#else
-        DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+        DWORD64 numHandle = getHandle64(handle);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", j, numHandle, path);
         write(msg);
         if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -3299,11 +3525,7 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
         if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
         if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
         HANDLE handle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-        DWORD64 numHandle = (DWORD64)handle;
-#else
-        DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+        DWORD64 numHandle = getHandle64(handle);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
         write(msg);
         if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -3328,11 +3550,7 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
             if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
             if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
             HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-            DWORD64 numHandle = (DWORD64)handle;
-#else
-            DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+            DWORD64 numHandle = getHandle64(handle);
             snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", i, numHandle, path);
             write(msg);
             if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -3491,11 +3709,7 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
         if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
         if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
         HANDLE handle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, attributes, nullptr);
-#ifdef NATIVE_WIDTH_64
-        DWORD64 numHandle = (DWORD64)handle;
-#else
-        DWORD64 numHandle = (DWORD64)((DWORD32)handle);
-#endif
+        DWORD64 numHandle = getHandle64(handle);
         snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX     %s\r\n", j, numHandle, path);
         write(msg);
         if ((handle != NULL) && (handle != INVALID_HANDLE_VALUE))
@@ -3811,4 +4025,8 @@ int runTaskIOPSqueued(COMMAND_LINE_PARMS* p)
     }
     // Done, release resources and return.
     return closeContext(NO_ERRORS, fileData, previousAffinity);
+}
+int runTaskIOPSmap(COMMAND_LINE_PARMS* p)
+{
+    return FUNCTION_UNDER_CONSTRUCTION;
 }
