@@ -1,0 +1,111 @@
+Mass storage performance test v0.02.00 (single source file edition) (x64).
+Input configuration file parsed OK.
+
+ Benchmark scenario options.
+-------------------------------
+ srcpath     
+ dstpath     
+ filesize    64.000 MB           
+ blocksize   16.000 MB           
+ filecount   5
+ repeats     2
+ address     mbps
+ data        zeroes
+ nobuf       1
+ writethr    1
+ sequental   0
+ waitread    1000
+ waitwrite   2000
+ waitcopy    3000
+ queue       1
+ mincpu      -1
+ maxcpu      -1
+ mindomain   -1
+ maxdomain   -1
+-------------------------------
+
+Performance frequency 10.000 MHz, period 0.100 microseconds.
+Memory allocated, base=0000024D37890000h, size=0000000004000000h.
+Memory initializing (ALL_ZEROES), fill rate = 9852.289 MBPS.
+
+ Create files.
+--------------------------------------------------------------------
+ Index     Handle (hex)         Path
+--------------------------------------------------------------------
+ 0         0000000000000098     src_00000000.bin
+ 1         000000000000009C     src_00000001.bin
+ 2         00000000000000A0     src_00000002.bin
+ 3         00000000000000A4     src_00000003.bin
+ 4         00000000000000A8     src_00000004.bin
+ 0         00000000000000AC     dst_00000000.bin
+ 1         00000000000000B0     dst_00000001.bin
+ 2         00000000000000B4     dst_00000002.bin
+ 3         00000000000000B8     dst_00000003.bin
+ 4         00000000000000BC     dst_00000004.bin
+--------------------------------------------------------------------
+
+ Wait before start write (2000 ms).
+ Write file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         515.018
+ 1         522.482
+ 2         522.770
+ 3         523.346
+ 4         522.300
+ Integral  520.937
+-------------------------------
+
+ Wait before start copy (3000 ms).
+ Copy file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         267.715
+ 1         269.570
+ 2         269.393
+ 3         269.072
+ 4         268.861
+ Integral  268.855
+-------------------------------
+
+ Wait before start read (1000 ms).
+ Read file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         546.256
+ 1         555.040
+ 2         554.839
+ 3         555.836
+ 4         555.798
+ Integral  553.249
+-------------------------------
+
+ Delete files.
+--------------------------------------------------------------------
+ Index     Path
+--------------------------------------------------------------------
+ 0         src_00000000.bin
+ 1         src_00000001.bin
+ 2         src_00000002.bin
+ 3         src_00000003.bin
+ 4         src_00000004.bin
+ 0         dst_00000000.bin
+ 1         dst_00000001.bin
+ 2         dst_00000002.bin
+ 3         dst_00000003.bin
+ 4         dst_00000004.bin
+--------------------------------------------------------------------
+
+ Performance Statistics.
+--------------------------------------------------------------------
+ Operation      min           max         average       median
+--------------------------------------------------------------------
+ READ         546.256       555.836       553.000       555.040
+ WRITE        515.018       523.346       520.800       522.482
+ COPY         267.715       269.570       268.400       269.072
+--------------------------------------------------------------------
+
+Performance scenario OK.

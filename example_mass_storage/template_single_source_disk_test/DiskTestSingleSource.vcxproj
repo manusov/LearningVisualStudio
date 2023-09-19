@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{031b6218-686d-4142-a499-823f1070153a}</ProjectGuid>
-    <RootNamespace>StoragePerformanceTest</RootNamespace>
+    <ProjectGuid>{3791d490-c1df-43cc-9987-d01fa9f1f555}</ProjectGuid>
+    <RootNamespace>DiskTestSingleSource</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

@@ -1,0 +1,27 @@
+srcpath    = f:\exchange\
+dstpath    = f:\backup\
+filesize   = 1G
+blocksize  = 4M
+filecount  = 20
+; repeats    = 2
+address    = iopsqueue
+data       = zeroes
+nobuf      = 1
+writethr   = 1
+sequental  = 0
+waitread   = 20000
+waitwrite  = 10000
+; waitcopy   = 3000
+queue      = 16
+
+; mincpu     = 0
+; maxcpu     = 0
+; mindomain  = 0
+; maxdomain  = 0
+
+; UNDER CONSTRUCTION OPTIONS.
+; threads    = 1
+; ht         = default
+; largepages = 0
+; numa       = unaware
+; pgroups    = unaware
