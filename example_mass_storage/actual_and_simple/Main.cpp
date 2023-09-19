@@ -18,15 +18,20 @@ TODO.
 9)  Add check affinity mask validity.
 10) Add support >64 logical processors by Processor Groups.
 11) Add scenarios with I/O queues, especially for IOPS, especially at multithread test. Enumerate as IOPS_QUEUED.
-12) Support procedures: void resetBeforeParse(), void correctAfterParse(). Check all options.
-13) Error message and exit if wrong options (instead default scenario).
-14) Close file group than measure integral time (?)
-15) Extended verification by compare read data and write data.
-16) Wait key option: wait after actions.
-17) Report option: file and/or console.
-18) Support all other options.
-19) Re-verify all options settings support.
-20) Compare with NIOBench for some types of disks.
+12) Change queue strategy: add next request after one request executed. Don't wait all requests done, this prevents parallel works.
+13) Support procedures: void resetBeforeParse(), void correctAfterParse(). Check all options.
+14) Error message and exit if wrong options (instead default scenario).
+15) Close file group than measure integral time (?)
+16) Support files and blocks size > 2GB/4GB, use 64-bit variables (Microsoft DWORD64) for all offsets and sizes.
+17) Optimize by remove duplicated fragments by functions (subroutines).
+18) Extended verification by compare read data and write data.
+19) Wait key option: wait after actions.
+20) Report option: file and/or console.
+21) Support all other options.
+22) Re-verify all options settings support.
+23) Compare with NIOBench for some types of disks.
+24) If divergent source, use Main.cpp module, Main.h header (?) and classes: TaskParms.cpp, TaskParms.h, TaskWork.cpp, TaskWork.h. 
+    Projects names: template_single_file, template_classes. This variant is single source file (Main.cpp).
 
 */
 
@@ -157,7 +162,7 @@ namespace APPCONST
 	// Application strings and report file name.
 	const char* const MSG_STARTING = "Starting...";
 	const char* const ANY_KEY_STRING = "Press any key...";
-	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.11";
+	const char* const MSG_APPLICATION = "Mass storage performance test v0.01.12";
 	const char* const DEFAULT_IN_NAME = "input.txt";
 	const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -2638,6 +2643,7 @@ int runTaskMBPSoneFile(COMMAND_LINE_PARMS* p)
     // Done, release resources and return.
     return closeContext(NO_ERRORS, fileData, previousAffinity);
 }
+/*
 int runTaskMBPSmap(COMMAND_LINE_PARMS* p)
 {
     // (1) Initializing variables by constants.
@@ -2858,6 +2864,642 @@ int runTaskMBPSmap(COMMAND_LINE_PARMS* p)
     }
     // (21) Done.
     return FUNCTION_UNDER_CONSTRUCTION;
+}
+*/
+int runTaskMBPSmap(COMMAND_LINE_PARMS* p)
+{
+    // Initializing variables by constants.
+    char msg[APPCONST::MAX_TEXT_STRING];
+    const char* nameSrcPath = APPCONST::DEFAULT_PATH_SRC;
+    const char* nameDstPath = APPCONST::DEFAULT_PATH_DST;
+    const char* nameSrc = APPCONST::DEFAULT_NAME_SRC;
+    const char* nameDst = APPCONST::DEFAULT_NAME_DST;
+    const char* nameExt = APPCONST::DEFAULT_EXTENSION;
+    DWORD32 fileCount = APPCONST::DEFAULT_FILE_COUNT;
+    DWORD32 fileSize = APPCONST::DEFAULT_FILE_SIZE;
+    DWORD32 blockSize = APPCONST::DEFAULT_BLOCK_SIZE;
+    DWORD32 repeats = APPCONST::DEFAULT_REPEATS;
+    D_TYPE dataType = APPCONST::DEFAULT_DATA_TYPE;
+    A_TYPE addressType = APPCONST::DEFAULT_ADDRESS_TYPE;
+    BOOL flagNoBuffering = APPCONST::DEFAULT_FLAG_NO_BUFFERING;
+    BOOL flagWriteThrough = APPCONST::DEFAULT_FLAG_WRITE_THROUGH;
+    BOOL flagSequentalScan = APPCONST::DEFAULT_FLAG_SEQUENTIAL_SCAN;
+    DWORD32 msWaitRead = APPCONST::DEFAULT_WAIT_READ;
+    DWORD32 msWaitWrite = APPCONST::DEFAULT_WAIT_WRITE;
+    DWORD32 msWaitCopy = APPCONST::DEFAULT_WAIT_COPY;
+    DWORD32 minCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 maxCpu = APPCONST::DEFAULT_CPU_SELECT;
+    DWORD32 minDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    DWORD32 maxDomain = APPCONST::DEFAULT_DOMAIN_SELECT;
+    // If input parameters structure passed, load parameters from this structure.
+    if (p)
+    {
+        nameSrcPath = p->optionSrcPath;
+        nameDstPath = p->optionDstPath;
+        fileCount = p->optionFileCount;
+        fileSize = static_cast<DWORD32>(p->optionFileSize);
+        blockSize = static_cast<DWORD32>(p->optionBlockSize);
+        repeats = p->optionRepeats;
+        dataType = static_cast<D_TYPE>(p->optionData);
+        addressType = static_cast<A_TYPE>(p->optionAddress);
+        flagNoBuffering = p->optionNoBuf;
+        flagWriteThrough = p->optionWriteThr;
+        flagSequentalScan = p->optionSequental;
+        msWaitRead = p->optionWaitRead;
+        msWaitWrite = p->optionWaitWrite;
+        msWaitCopy = p->optionWaitCopy;
+        minCpu = p->optionMinCpu;
+        maxCpu = p->optionMaxCpu;
+        minDomain = p->optionMinDomain;
+        maxDomain = p->optionMaxDomain;
+    }
+    // Initializing variables for read, write and copy total sizes verification.
+    DWORD64 totalRead = 0;
+    DWORD64 totalWrite = 0;
+    DWORD64 totalCopyRead = 0;
+    DWORD64 totalCopyWrite = 0;
+    DWORD64 totalBytes = (DWORD64)fileSize * (DWORD64)fileCount * (DWORD64)repeats;
+    // Initializing timer (use OS performance counter).
+    LARGE_INTEGER hz;
+    BOOL status;
+    status = QueryPerformanceFrequency(&hz);
+    if ((!status) || (hz.QuadPart == 0)) return TIMER_FAILED;
+    double MHz = (hz.QuadPart) / 1000000.0;
+    double us = 1.0 / MHz;
+    snprintf(msg, APPCONST::MAX_TEXT_STRING, "Performance frequency %.3f MHz, period %.3f microseconds.", MHz, us);
+    write(msg);
+    // Allocate memory for file I/O buffer, set CPU affinity and NUMA domain if required by scenario options settings.
+    LPVOID fileData = nullptr;
+    DWORD_PTR previousAffinity = 0;
+    STATUS_CODES retStatus = openContext(fileSize, minCpu, maxCpu, minDomain, maxDomain, fileData, previousAffinity);
+    if (retStatus != NO_ERRORS)
+    {
+        return closeContext(retStatus, fileData, previousAffinity);
+    }
+    write("\r\nMemory allocated, ");
+    storeBaseAndSize(msg, APPCONST::MAX_TEXT_STRING, (DWORD64)fileData, (DWORD64)fileSize);
+    write(msg);
+    write(".");
+    // Initializing data for write files.
+    buildData(msg, hz, dataType, fileData, fileSize);
+    // Create source and destination files and mapping objects.
+    writeColor("\r\n\r\n Create files and mapping objects.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     File Handle (hex)   Map Handle (hex)    Path\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    char path[MAX_PATH];
+    BOOL createError = FALSE;
+    STATUS_CODES statusCode = INTERNAL_ERROR;
+    // Create source files and mapping objects.
+    std::vector<HANDLE> srcHandles;
+    std::vector<HANDLE> srcMapHandles;
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, i, nameExt);
+        DWORD attributes = FILE_ATTRIBUTE_NORMAL;
+        if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
+        if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
+        if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
+        HANDLE fileHandle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
+        if ((fileHandle != NULL) && (fileHandle != INVALID_HANDLE_VALUE))
+        {
+            srcHandles.push_back(fileHandle);
+        }
+        else
+        {
+            createError = TRUE;
+            statusCode = FILE_CREATE_FAILED;
+            break;
+        }
+        HANDLE mapHandle = CreateFileMapping(fileHandle, nullptr, PAGE_READWRITE, 0, fileSize, nullptr);
+        if ((mapHandle != NULL) && (mapHandle != INVALID_HANDLE_VALUE))
+        {
+            srcMapHandles.push_back(mapHandle);
+        }
+        else
+        {
+            createError = TRUE;
+            statusCode = FILE_MAPPING_CREATE_FAILED;
+            break;
+        }
+        DWORD64 numFileHandle = getHandle64(fileHandle);
+        DWORD64 numMapHandle = getHandle64(mapHandle);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX    %016llX    %s\r\n", i, numFileHandle, numMapHandle, path);
+        write(msg);
+    }
+    // Create destination files and mapping objects.
+    std::vector<HANDLE> dstHandles;
+    std::vector<HANDLE> dstMapHandles;
+    if (!createError)
+    {
+        for (unsigned int i = 0; i < fileCount; i++)
+        {
+            snprintf(path, MAX_PATH, "%s%s%08X%s", nameDstPath, nameDst, i, nameExt);
+            DWORD attributes = FILE_ATTRIBUTE_NORMAL;
+            if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
+            if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
+            if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
+            HANDLE fileHandle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, CREATE_ALWAYS, attributes, nullptr);
+            if ((fileHandle != NULL) && (fileHandle != INVALID_HANDLE_VALUE))
+            {
+                dstHandles.push_back(fileHandle);
+            }
+            else
+            {
+                createError = TRUE;
+                statusCode = FILE_CREATE_FAILED;
+                break;
+            }
+            HANDLE mapHandle = CreateFileMapping(fileHandle, nullptr, PAGE_READWRITE, 0, fileSize, nullptr);
+            if ((mapHandle != NULL) && (mapHandle != INVALID_HANDLE_VALUE))
+            {
+                dstMapHandles.push_back(mapHandle);
+            }
+            else
+            {
+                createError = TRUE;
+                statusCode = FILE_MAPPING_CREATE_FAILED;
+                break;
+            }
+            DWORD64 numFileHandle = getHandle64(fileHandle);
+            DWORD64 numMapHandle = getHandle64(mapHandle);
+            snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX    %016llX    %s\r\n", i, numFileHandle, numMapHandle, path);
+            write(msg);
+        }
+    }
+    // Both source and destination files and mapping objects created (yet zero size).
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (createError)
+    {
+        return closeContext(statusCode, fileData, previousAffinity);
+    }
+    // Initializing for timings measurements.
+    LARGE_INTEGER t1, t2, t3, t4, t5;
+    double timeUnitSeconds = 1.0 / hz.QuadPart;
+    double fileMegabytes = fileSize * repeats / 1000000.0;
+    double integralMegabytes = fileMegabytes * fileCount;
+    std::vector<double> readSpeed;
+    std::vector<double> writeSpeed;
+    std::vector<double> copySpeed;
+    // Wait before WRITE operation start, if selected by option.
+    waitTime(msg, msWaitWrite, "write");
+    // Table up for WRITE operation.
+    writeColor("\r\n Write memory-mapped file performance.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     MBPS\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    BOOL writeError = FALSE;
+    // Start timer for integral time of write source files.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
+    }
+    t2.QuadPart = t1.QuadPart;
+    while (t2.QuadPart == t1.QuadPart)
+    {
+        if (!QueryPerformanceCounter(&t2))
+        {
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
+        }
+    }
+    // Start cycle for WRITE source files as flush memory-mapped I/O.
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        DWORD oneFileWrite = 0;
+        t5.QuadPart = 0;
+        // Start cycle for measurement repeats per each file.
+        for (unsigned int j = 0; j < repeats; j++)
+        {
+            HANDLE mapHandle = srcMapHandles[i];
+            DWORD32 writeSize = fileSize;
+            LPVOID dataPointer = fileData;
+            // Start cycle for blocks in the file.
+            while (writeSize)
+            {
+                LPVOID mapPointer = MapViewOfFile(mapHandle, FILE_MAP_WRITE, 0, oneFileWrite, blockSize);
+                if (!mapPointer)
+                {
+                    writeError = TRUE;
+                    break;
+                }
+                DWORD32 flushSize = blockSize;
+                if (flushSize > writeSize)
+                {
+                    flushSize = writeSize;
+                }
+                memcpy(mapPointer, dataPointer, flushSize);
+                QueryPerformanceCounter(&t3);  // Start timer for one block write.
+                BOOL flushStatus = FlushViewOfFile(mapPointer, flushSize);
+                QueryPerformanceCounter(&t4);  // Stop timer for one block write.
+                t5.QuadPart += (t4.QuadPart - t3.QuadPart);
+                writeSize -= flushSize;
+                oneFileWrite += flushSize;
+                totalWrite += flushSize;
+                BOOL unmapStatus = UnmapViewOfFile(mapPointer);
+                if ((!flushStatus) || (!unmapStatus))
+                {
+                    writeError = TRUE;
+                    break;
+                }
+            } // End cycle for blocks in the file.
+            if (writeError) break;
+        }  // End cycle for measurement repeats.
+        if (writeError) break;
+        double seconds = t5.QuadPart * timeUnitSeconds;
+        double mbps = fileMegabytes / seconds;
+        writeSpeed.push_back(mbps);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%.3f\r\n", i, mbps);
+        write(msg);
+    }
+    // Stop timer for integral time of write source files.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
+    }
+    else
+    {
+        double seconds = (t1.QuadPart - t2.QuadPart) * timeUnitSeconds;
+        double mbps = integralMegabytes / seconds;
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " Integral  %.3f\r\n", mbps);
+        writeColor(msg, APPCONST::GROUP_COLOR);
+    }
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (writeError)
+    {
+        return closeContext(FILE_WRITE_FAILED, fileData, previousAffinity);
+    }
+    // Close source files and mappings for invalidate OS file caches.
+    BOOL closeError = FALSE;
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, i, nameExt);
+        if (!CloseHandle(srcMapHandles[i])) closeError = TRUE;
+        if (!CloseHandle(srcHandles[i])) closeError = TRUE;
+    }
+    // Delete source and destination files done.
+    if (closeError)
+    {
+        return closeContext(HANDLE_CLOSE_FAILED, fileData, previousAffinity);
+    }
+    srcHandles.clear();
+    srcMapHandles.clear();
+    // Re-open source files and re-create mapping objects.
+    writeColor("\r\n Re-open files and re-create mapping objects.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     File Handle (hex)   Map Handle (hex)    Path\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, i, nameExt);
+        DWORD attributes = FILE_ATTRIBUTE_NORMAL;
+        if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
+        if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
+        if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
+        HANDLE fileHandle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, attributes, nullptr);
+        if ((fileHandle != NULL) && (fileHandle != INVALID_HANDLE_VALUE))
+        {
+            srcHandles.push_back(fileHandle);
+        }
+        else
+        {
+            createError = TRUE;
+            statusCode = FILE_OPEN_FAILED;
+            break;
+        }
+        HANDLE mapHandle = CreateFileMapping(fileHandle, nullptr, PAGE_READWRITE, 0, fileSize, nullptr);
+        if ((mapHandle != NULL) && (mapHandle != INVALID_HANDLE_VALUE))
+        {
+            srcMapHandles.push_back(mapHandle);
+        }
+        else
+        {
+            createError = TRUE;
+            statusCode = FILE_MAPPING_CREATE_FAILED;
+            break;
+        }
+        DWORD64 numFileHandle = getHandle64(fileHandle);
+        DWORD64 numMapHandle = getHandle64(mapHandle);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX    %016llX    %s\r\n", i, numFileHandle, numMapHandle, path);
+        write(msg);
+    }
+    // Source files re-opened.
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (createError)
+    {
+        return closeContext(statusCode, fileData, previousAffinity);
+    }
+    // Wait before COPY operation start, if selected by option.
+    waitTime(msg, msWaitCopy, "copy");
+    // Table up for WRITE operation.
+    writeColor("\r\n Copy memory-mapped file performance.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     MBPS\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    BOOL copyError = FALSE;
+    // Start timer for integral time of write source files.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
+    }
+    t2.QuadPart = t1.QuadPart;
+    while (t2.QuadPart == t1.QuadPart)
+    {
+        if (!QueryPerformanceCounter(&t2))
+        {
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
+        }
+    }
+    // Start cycle for WRITE source files as flush memory-mapped I/O.
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        DWORD oneFileCopy = 0;
+        t5.QuadPart = 0;
+        // Start cycle for measurement repeats per each file.
+        for (unsigned int j = 0; j < repeats; j++)
+        {
+            HANDLE srcMapHandle = srcMapHandles[i];
+            HANDLE dstMapHandle = dstMapHandles[i];
+            DWORD32 copySize = fileSize;
+            LPVOID dataPointer = fileData;
+            // Start cycle for blocks in the file.
+            while (copySize)
+            {
+                LPVOID srcMapPointer = MapViewOfFile(srcMapHandle, FILE_MAP_READ, 0, oneFileCopy, blockSize);
+                LPVOID dstMapPointer = MapViewOfFile(dstMapHandle, FILE_MAP_WRITE, 0, oneFileCopy, blockSize);
+                if ((!srcMapPointer) || (!dstMapPointer))
+                {
+                    copyError = TRUE;
+                    break;
+                }
+                DWORD32 flushSize = blockSize;
+                if (flushSize > copySize)
+                {
+                    flushSize = copySize;
+                }
+                QueryPerformanceCounter(&t3);  // Start timer for one block copy.
+                memcpy(dstMapPointer, srcMapPointer, flushSize);
+                BOOL flushStatus = FlushViewOfFile(dstMapPointer, flushSize);
+                QueryPerformanceCounter(&t4);  // Stop timer for one block copy.
+                t5.QuadPart += (t4.QuadPart - t3.QuadPart);
+                copySize -= flushSize;
+                oneFileCopy += flushSize;
+                totalCopyRead += flushSize;
+                totalCopyWrite += flushSize;
+                BOOL dstUnmapStatus = UnmapViewOfFile(dstMapPointer);
+                BOOL srcUnmapStatus = UnmapViewOfFile(srcMapPointer);
+                if ((!flushStatus) || (!dstUnmapStatus) || (!srcUnmapStatus))
+                {
+                    copyError = TRUE;
+                    break;
+                }
+            } // End cycle for blocks in the file.
+            if (copyError) break;
+        }  // End cycle for measurement repeats.
+        if (copyError) break;
+        double seconds = t5.QuadPart * timeUnitSeconds;
+        double mbps = fileMegabytes / seconds;
+        copySpeed.push_back(mbps);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%.3f\r\n", i, mbps);
+        write(msg);
+    }
+    // Stop timer for integral time of write source files.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
+    }
+    else
+    {
+        double seconds = (t1.QuadPart - t2.QuadPart) * timeUnitSeconds;
+        double mbps = integralMegabytes / seconds;
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " Integral  %.3f\r\n", mbps);
+        writeColor(msg, APPCONST::GROUP_COLOR);
+    }
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (writeError)
+    {
+        return closeContext(FILE_COPY_FAILED, fileData, previousAffinity);
+    }
+    // Close source files and mappings for invalidate OS file caches.
+    closeError = FALSE;
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, i, nameExt);
+        if (!CloseHandle(srcMapHandles[i])) closeError = TRUE;
+        if (!CloseHandle(srcHandles[i])) closeError = TRUE;
+    }
+    // Delete source and destination files done.
+    if (closeError)
+    {
+        return closeContext(HANDLE_CLOSE_FAILED, fileData, previousAffinity);
+    }
+    srcHandles.clear();
+    srcMapHandles.clear();
+    // Re-open source files and re-create mapping objects.
+    writeColor("\r\n Re-open files and re-create mapping objects.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     File Handle (hex)   Map Handle (hex)    Path\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, i, nameExt);
+        DWORD attributes = FILE_ATTRIBUTE_NORMAL;
+        if (flagNoBuffering)   attributes |= FILE_FLAG_NO_BUFFERING;
+        if (flagWriteThrough)  attributes |= FILE_FLAG_WRITE_THROUGH;
+        if (flagSequentalScan) attributes |= FILE_FLAG_SEQUENTIAL_SCAN;
+        HANDLE fileHandle = CreateFile(path, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, attributes, nullptr);
+        if ((fileHandle != NULL) && (fileHandle != INVALID_HANDLE_VALUE))
+        {
+            srcHandles.push_back(fileHandle);
+        }
+        else
+        {
+            createError = TRUE;
+            statusCode = FILE_OPEN_FAILED;
+            break;
+        }
+        HANDLE mapHandle = CreateFileMapping(fileHandle, nullptr, PAGE_READWRITE, 0, fileSize, nullptr);
+        if ((mapHandle != NULL) && (mapHandle != INVALID_HANDLE_VALUE))
+        {
+            srcMapHandles.push_back(mapHandle);
+        }
+        else
+        {
+            createError = TRUE;
+            statusCode = FILE_MAPPING_CREATE_FAILED;
+            break;
+        }
+        DWORD64 numFileHandle = getHandle64(fileHandle);
+        DWORD64 numMapHandle = getHandle64(mapHandle);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%016llX    %016llX    %s\r\n", i, numFileHandle, numMapHandle, path);
+        write(msg);
+    }
+    // Source files re-opened.
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (createError)
+    {
+        return closeContext(statusCode, fileData, previousAffinity);
+    }
+    // Wait before READ operation start, if selected by option.
+    waitTime(msg, msWaitRead, "read");
+    // Table up for READ operation.
+    writeColor("\r\n Read memory-mapped file performance.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     MBPS\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    BOOL readError = FALSE;
+    // Start timer for integral time of read source files.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
+    }
+    t2.QuadPart = t1.QuadPart;
+    while (t2.QuadPart == t1.QuadPart)
+    {
+        if (!QueryPerformanceCounter(&t2))
+        {
+            return closeContext(TIMER_FAILED, fileData, previousAffinity);
+        }
+    }
+    // Start cycle for READ source files as read memory-mapped I/O.
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        DWORD pageWalkData = 0;  // This for prevent speculative skips.
+        DWORD oneFileRead = 0;
+        t5.QuadPart = 0;
+        // Start cycle for measurement repeats per each file.
+        for (unsigned int j = 0; j < repeats; j++)
+        {
+            HANDLE mapHandle = srcMapHandles[i];
+            DWORD32 readSize = fileSize;
+            LPVOID dataPointer = fileData;
+            // Start cycle for blocks in the file.
+            while (readSize)
+            {
+                LPVOID mapPointer = MapViewOfFile(mapHandle, FILE_MAP_READ, 0, oneFileRead, blockSize);
+                if (!mapPointer)
+                {
+                    readError = TRUE;
+                    break;
+                }
+                DWORD32 flushSize = blockSize;
+                if (flushSize > readSize)
+                {
+                    flushSize = readSize;
+                }
+                DWORD* pageWalkAddress = reinterpret_cast<DWORD*>(mapPointer);
+                int pageWalkCount = flushSize / APPCONST::PAGE_WALK_STEP;
+                if (!pageWalkCount)
+                {
+                    pageWalkCount = 1;
+                }
+                size_t pageWalkIncrement = APPCONST::PAGE_WALK_STEP / sizeof(DWORD);
+                QueryPerformanceCounter(&t3);
+                for (int i = 0; i < pageWalkCount; i++)
+                {
+                    pageWalkData += *pageWalkAddress;
+                    pageWalkAddress += pageWalkIncrement;
+                }
+                QueryPerformanceCounter(&t4);
+                t5.QuadPart += (t4.QuadPart - t3.QuadPart);
+                readSize -= flushSize;
+                oneFileRead += flushSize;
+                totalRead += flushSize;
+                BOOL unmapStatus = UnmapViewOfFile(mapPointer);
+                if (!unmapStatus)
+                {
+                    readError = TRUE;
+                    break;
+                }
+            } // End cycle for blocks in the file.
+            if (readError) break;
+        }  // End cycle for measurement repeats.
+        if (readError) break;
+        double seconds = t5.QuadPart * timeUnitSeconds;
+        double mbps = fileMegabytes / seconds;
+        readSpeed.push_back(mbps);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%.3f (%d)\r\n", i, mbps, pageWalkData);
+        write(msg);
+    }
+    // Stop timer for integral time of write source files.
+    if (!QueryPerformanceCounter(&t1))
+    {
+        return closeContext(TIMER_FAILED, fileData, previousAffinity);
+    }
+    else
+    {
+        double seconds = (t1.QuadPart - t2.QuadPart) * timeUnitSeconds;
+        double mbps = integralMegabytes / seconds;
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " Integral  %.3f\r\n", mbps);
+        writeColor(msg, APPCONST::GROUP_COLOR);
+    }
+    writeColorLine(APPCONST::SMALL_TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (readError)
+    {
+        return closeContext(FILE_READ_FAILED, fileData, previousAffinity);
+    }
+    // Close files and file mappings, delete files.
+    writeColor("\r\n Close files and file mappings, delete files.\r\n", APPCONST::VALUE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    writeColor(" Index     Path\r\n", APPCONST::TABLE_COLOR);
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    BOOL deleteError = FALSE;
+    // Close and delete source files.
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        snprintf(path, MAX_PATH, "%s%s%08X%s", nameSrcPath, nameSrc, i, nameExt);
+        if (!CloseHandle(srcMapHandles[i])) deleteError = TRUE;
+        if (!CloseHandle(srcHandles[i])) deleteError = TRUE;
+        if (!DeleteFile(path)) deleteError = TRUE;
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%s\r\n", i, path);
+        write(msg);
+    }
+    // Close and delete destination files.
+    for (unsigned int i = 0; i < fileCount; i++)
+    {
+        snprintf(path, MAX_PATH, "%s%s%08X%s", nameDstPath, nameDst, i, nameExt);
+        if (!CloseHandle(dstMapHandles[i])) deleteError = TRUE;
+        if (!CloseHandle(dstHandles[i])) deleteError = TRUE;
+        if (!DeleteFile(path)) deleteError = TRUE;
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, " %-10d%s\r\n", i, path);
+        write(msg);
+    }
+    // Delete source and destination files done.
+    writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    if (deleteError)
+    {
+        return closeContext(FILE_DELETE_FAILED, fileData, previousAffinity);
+    }
+    // Verify total read, write and copy sizes: compare returned by WinAPI and calculated values.
+    if ((totalBytes > 0) &&
+        (totalRead == totalBytes) && (totalWrite == totalBytes) && (totalCopyRead == totalBytes) && (totalCopyWrite == totalBytes))
+    {   // Write performance measurement statistics, if total size verification passed.
+        writeColor("\r\n Performance Statistics.\r\n", APPCONST::VALUE_COLOR);
+        writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+        writeColor(" Operation      min           max         average       median\r\n", APPCONST::TABLE_COLOR);
+        writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+        writeStatistics(msg, " READ  ", readSpeed, true);
+        writeStatistics(msg, "\r\n WRITE ", writeSpeed, true);
+        writeStatistics(msg, "\r\n COPY  ", copySpeed, true);
+        write("\r\n");
+        writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
+    }
+    else
+    {   // Write error message, if total read, write, copy, size verification failed.
+        writeColor("\r\nTotal read/write size verification error.", APPCONST::ERROR_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nCalculated = %016llXh,\r\n", totalBytes);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Read       = %016llXh", totalRead);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Write      = %016llXh,\r\n", totalWrite);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, "Copy read  = %016llXh", totalCopyRead);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        snprintf(msg, APPCONST::MAX_TEXT_STRING, ", Copy write = %016llXh.\r\n", totalCopyWrite);
+        writeColor(msg, APPCONST::TABLE_COLOR);
+        return closeContext(FILE_SIZE_MISMATCH, fileData, previousAffinity);
+    }
+    // Done, release resources and return.
+    return closeContext(NO_ERRORS, fileData, previousAffinity);
 }
 int runTaskIOPS(COMMAND_LINE_PARMS* p)
 {
