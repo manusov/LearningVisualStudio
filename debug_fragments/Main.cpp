@@ -28,8 +28,18 @@ Main module.
 #include "Task_21.h"   // Learn some intrinsics - miscellaneous.
 #include "Task_22.h"   // Learn some intrinsics - load.
 #include "Task_23.h"   // Learn some intrinsics - SSE.
-#include "Task_24.h"   // Learn some intrinsics - AVX512 VBMI.
-#include "Task_25.h"   // Learn some intrinsics - AVX512 VBMI2.
+#include "Task_24.h"   // Learn some intrinsics - AVX512 VBMI (old)
+#include "Task_25.h"   // Learn some intrinsics - AVX512 VBMI2 (old).
+
+#include "Task_26.h"   // Learn some intrinsics - AVX512 VNNI.
+#include "Task_27.h"   // Benchmark AVX512 VNNI.
+#include "Task_28.h"   // Benchmark AVX512 VNNI. Compare bandwidth for 512/256/128-bit vector instructions forms.
+#include "Task_29.h"   // Learn some intrinsics - AVX512 VBMI.
+#include "Task_30.h"   // Learn some intrinsics - AVX512 VBMI2.
+#include "Task_31.h"   // Learn some intrinsics - AVX512 BITALG.
+#include "Task_32.h"   // Learn some intrinsics - AVX512 GFNI.
+#include "Task_33.h"   // Arbitrtry bit permutter example.
+#include "Task_34.h"   // Macro usage examples for set SSE/AVX/AVX512 variables and registers.
 
 #include "Task_50.h"   // GPU info.
 
@@ -47,7 +57,9 @@ int main(int argc, char** argv)
 	// Task_08 task;   // Relatively slow. TODO: blocking required?
 	// Task_09 task;
 	// Task_10 task;
+	//
 	   Task_11 task;   // Complex AVX512 benchmark: temporal - nontemporal, f(matrix size).
+	//
 	// Task_12 task;
 	// Task_13 task;   // Complex AVX256 benchmark: temporal - nontemporal, f(matrix size).
 	// Task_14 task;
@@ -62,6 +74,16 @@ int main(int argc, char** argv)
 	// Task_23 task;
 	// Task_24 task;
 	// Task_25 task;
+	//
+	// Task_26 task;  // Learn AVX512 VNNI intrinsics.
+	// Task_27 task;  // Benchmark AVX512 VNNI.
+	// Task_28 task;  // Benchmark AVX512 VNNI. Compare bandwidth for 512/256/128-bit vector instructions forms.
+	// Task_29 task;  // Learn AVX512 VNNI intrinsics.
+	// Task_30 task;  // Learn AVX512 VNNI2 intrinsics.
+	// Task_31 task;  // Learn AVX512 BITALG intrinsics.
+	// Task_32 task;  // Learn AVX512 GFNI intrinsics.
+	// Task_33 task;  // Arbitrtry bit permutter example.
+	// Task_34 task;  // Macro usage examples for set SSE/AVX/AVX512 variables and registers.
 	// 
 	// Task_50 task;  // GPU info
 	//

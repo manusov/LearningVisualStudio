@@ -1,201 +1,24 @@
-Debug template v0.00.13. (Windows ia32).
-GPU Info v0.00.03 (ia32).
-[DirectX 9.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
-[DirectX 10.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
-[DirectX 11.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
-[DirectX 12.0 UMD file]
-UMD file name               C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvldumd.dll
-[OpenGL info]
-OpenGL version              00001000h
-OpenGL file name            C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_19f3764f95906f94\nvoglv32.dll
-[Segment size]
-Dedicated system memory     0 Bytes
-Dedicated video memory      7.85 GB
-Shared system memory        31.92 GB
-[Adapter GUID]
-Adapter GUID                F4394EB0-24AE-11EE-36B8-63696E6F6E80
-[Flip queue info]
-Max hardware flip queue     0
-Max software flip queue     31
-Flip flags                  00000000h
-[Adapter address]
-Bus                         1
-Device                      0
-Function                    0
-[Working set info]
-Working set flags           00000001h
-Min working set percentile  0
-Max working set percentile  0
-[Adapter registry info]
-Adapter                     NVIDIA GeForce RTX 3060 Ti
-BIOS                        Version94.4.46.80.eb
-Chip                        NVIDIA GeForce RTX 3060 Ti
-DAC                         Integrated RAMDAC
-[Current display mode]
-Width                       1920
-Height                      1080
-Format                      D3DDDIFMT_A8L8
-Integer refresh rate        60
-Rational refresh rate       60/1 = 60.000
-Scan line ordering          D3DDDI_VSSLO_PROGRESSIVE
-Display orientation         D3DDDI_ROTATION_90
-Display fixed output        0
-Validated against monitor   0
-Rounded fake mode           0
-Mode pruning reason         D3DKMDT_MPR_UNINITIALIZED
-Stereo                      0
-Advanced scan capable       0
-Preferred timing            0
-Physical mode supported     0
-[Mode list]
-ERROR: Request rejected.
-[Driver update status]
-Driver update status        0
-[Virtual address info]
-Virtual address supported   1
-[Driver version]
-Driver version              ? (2700)
-[Adapter type]
-Render supported            1
-Display supported           1
-Software device             0
-POST device                 1
-Hybrid discrete             0
-Hybrid integrated           0
-Indirect display device     0
-Paravirtualized             0
-Arbitrary Code Guard        1
-Set timings from VidPn      1
-Detachable                  0
-Compute only                0
-Prototype                   0
-Value                       0000030Bh
-[Desktop duplication API]
-ERROR: Request rejected.
-[WDDM 1.2 capabilities]
-Support non VGA             1
-Smooth rotation             1
-Per engine TDR              1
-Kernel mode command buffer  1
-CCD                         1
-Software device bitmaps     0
-Gamma ramp                  1
-HW Cursor                   1
-HW VSync                    1
-Surprise removal in hibrn.  0
-Value                       000001DFh
-[UMD driver version]
-UMD driver version          001F0000000F0C6Bh
-[Direct flip support]
-Direct flip                 1
-[MP overlay support]
-Multiplane overlay          1
-[Device list file name]
-ERROR: Request rejected.
-[WDDM 1.3 capabilities]
-Miracast                    0
-Hybrid integrated GPU       0
-Hybrid discrete GPU         0
-PM PStates                  0
-Virtual modes               1
-Cross adapter resources     1
-Value                       00000030h
-[MPO HUD support]
-ERROR: Request rejected.
-[WDDM 2.0 capabilities]
-64-bit atomics              0
-GPUMMU                      1
-IOMMU                       0
-Flip owerwrite              1
-Contextless present         1
-Surprise removal            0
-Value                       0000001Ah
-[CP driver name]
-CP driver name              
-[Detect XBOX]
-Is XBOX                     0
-[Independent flip]
-Independent flip            1
-[Miracast name]
-Miracast driver name        
-[Adapter count]
-Physical adapter count      1
-[Adapter ID]
-Vendor                      000010DEh
-Device                      00002489h
-Sub vendor                  00001043h
-Sub system                  0000883Ch
-Revision                    000000A1h
-Bus type                    00000001h
-[Miracast type]
-Miracast driver type        D3DKMT_MIRACAST_DRIVER_MS
-[GPU MMU capabilities]
-Read only memory            1
-No execute memory           0
-Cache coherent memory       1
-Virtual address bit count   40
-[MPO decode support]
-MPO decode                  1
-[Bad driver disabled]
-Is bad driver disabled      0
-[MPO secondary]
-MPO secondary support       1
-[Independent flip]
-Independent flip secondary  1
-[Panel fitter]
-Panel fitter support        1
-[Segment group size info]
-Dedicated system memory     0 Bytes
-Dedicated video memory      7.85 GB
-Shared system memory        31.92 GB
-Non budget memory           0 Bytes
-Local memory                7.85 GB
-Non local memory            31.92 GB
-[MPO3DDI]
-MPO3DDI support             1
-[HW DRM]
-HW DRM support              1
-[MPO kernel]
-MPO kernel capabilities     1
-[KMD driver version]
-KMD driver version          001F0000000F0C6Bh
-[Adapter unique GUID]
-Adapter unique GUID         {1F8EC6FE-705D-11EC-B717-87C8C4036EF2}
-[Node performance data]
-Frequency                   210.0 MHz
-Maximum frequency           2100.0 MHz
-OC maximum frequency        2100.0 MHz
-Voltage                     0.675 V
-Maximum voltage             1.081 V
-OC maximum voltage          1.081 V
-Max transition latency      0.0 uS
-[Performance data]
-Memory frequency            405.0 MHz
-Maximum memory frequency    7001.0 MHz
-OC memory frequency         7001.0 MHz
-Memory bandwidth            0.0 MBPS
-PCIe bandwidth              0.0 MBPS
-Temperature                 48.5 C
-Fan RPM                     0 RPM
-[Performance capabilities]
-Maximum memory bandwidth    0.0 MBPS
-Maximum PCIe bandwidth      0.0 MBPS
-Maximum Fan RPM             3000 RPM
-Maximum temperature         93.0 C
-Warning temperature         83.0 C
-[GPU version]
-GPU architecture            Ampere
-BIOS version                94.04.46.80.eb
-[Driver description]
-Driver description          NVIDIA GeForce RTX 3060 Ti
-[WDDM 2.7 capabilities]
-HW scheduling supported     1
-HW scheduling enabled       0
-HW scheduling default       0
-Independent VidPn VSync     1
-Value                       00000009h
+Debug template v0.00.14. (Windows ia32).
+
+[AVX512 VBMI]
+
+[ 4F4E4D4C4B4A4948 4746454443424140
+  3F3E3D3C3B3A3938 3736353433323130
+  2F2E2D2C2B2A2928 2726252423222120
+  1F1E1D1C1B1A1918 1716151413121110 ]
+[ 5F5E5D5C5B5A5958 5756555453525150
+  4F4E4D4C4B4A4948 4746454443424140
+  3F3E3D3C3B3A3938 3736353433323130
+  2F2E2D2C2B2A2928 2726252423222120 ]
+[ 0000000000000000 0000000000000000
+  0000000000000000 0000000000000000
+  0000000000000000 0000000000000000
+  0011000000000000 0000000000150F00 ]
+[ 00000000FFFF00FF ]
+[ 0000000000000000 0000000000000000
+  0000000000000000 0000000000000000
+  1010101010101010 1010101010101010
+  0000000000000000 1010101010251F10 ]
+
 
 OK.

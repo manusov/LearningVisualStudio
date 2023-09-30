@@ -124,6 +124,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -162,6 +163,15 @@
     <ClCompile Include="Task_23.cpp" />
     <ClCompile Include="Task_24.cpp" />
     <ClCompile Include="Task_25.cpp" />
+    <ClCompile Include="Task_26.cpp" />
+    <ClCompile Include="Task_27.cpp" />
+    <ClCompile Include="Task_28.cpp" />
+    <ClCompile Include="Task_29.cpp" />
+    <ClCompile Include="Task_30.cpp" />
+    <ClCompile Include="Task_31.cpp" />
+    <ClCompile Include="Task_32.cpp" />
+    <ClCompile Include="Task_33.cpp" />
+    <ClCompile Include="Task_34.cpp" />
     <ClCompile Include="Task_50.cpp" />
     <ClCompile Include="Timer.cpp" />
   </ItemGroup>
@@ -194,6 +204,15 @@
     <ClInclude Include="Task_23.h" />
     <ClInclude Include="Task_24.h" />
     <ClInclude Include="Task_25.h" />
+    <ClInclude Include="Task_26.h" />
+    <ClInclude Include="Task_27.h" />
+    <ClInclude Include="Task_28.h" />
+    <ClInclude Include="Task_29.h" />
+    <ClInclude Include="Task_30.h" />
+    <ClInclude Include="Task_31.h" />
+    <ClInclude Include="Task_32.h" />
+    <ClInclude Include="Task_33.h" />
+    <ClInclude Include="Task_34.h" />
     <ClInclude Include="Task_50.h" />
     <ClInclude Include="Timer.h" />
   </ItemGroup>
