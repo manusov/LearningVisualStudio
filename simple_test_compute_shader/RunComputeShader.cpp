@@ -10,13 +10,17 @@ TODO.
 1)  + Make clean-up for error branches also.
 2)  - Make helper functions if required for optimization.
 3)  + Make memory allocation (dynamical arrays) for big buffers.
-4)  How optimize shader for utilize full PCIe traffic (32GB/S PCIe 4.0 x16)?
+4)  How optimize shader for utilize full PCIe traffic (for example: 32GB/S PCIe 4.0 x16)?
     Change calculation type, allocation flags, traffic architecture (Rx/Tx ratio).
 5)  How select between system DRAM and GPU memory for allocate buffers?
     Note about buffers can be cached in the GPU memory when measurement repeats used.
 6)  Error reading back buffer if simultaneously output to screen (by VS IDE for example).
 7)  Learn GPU topology and optimize threads.
     See Dispatch(X,Y,Z) and [numthreads(1, 1, 1)] at shader.
+    Optimize work size per one shader call. 
+    Too many shader calls at current variant?
+    More work per one shader call is better for benchmarking?
+    Otherwise overhead measurement instead really shader performance?
 8)  Learn GPU features and select calculation scenario.
 9)  See parallel NCRB DRAM bandwidth drawings. GPU access cached in the video memory?
 */
@@ -54,6 +58,7 @@ ID3D11Buffer* g_pBufResult = nullptr;
 ID3D11ShaderResourceView* g_pBuf0SRV = nullptr;
 ID3D11ShaderResourceView* g_pBuf1SRV = nullptr;
 ID3D11UnorderedAccessView* g_pBufResultUAV = nullptr;
+ID3D11Buffer* readBackBuf = nullptr;
 
 const char SHADER_SOURCE[] =
 "struct BufType\r\n"
@@ -74,6 +79,7 @@ const UINT SHADER_SOURCE_LENGTH = sizeof(SHADER_SOURCE) - 1;
 
 void cleaningUp()
 {
+    SAFE_RELEASE(readBackBuf);
     SAFE_RELEASE(g_pBuf0SRV);
     SAFE_RELEASE(g_pBuf1SRV);
     SAFE_RELEASE(g_pBufResultUAV);
@@ -89,7 +95,7 @@ void cleaningUp()
 
 int main()
 {
-    std::cout << "Run compute shader sample. v0.0.0. Based on MSDN examples." << std::endl << std::endl;
+    std::cout << "Run compute shader sample. v0.0.1. Based on MSDN examples." << std::endl << std::endl;
 
     // (1) Initializing timers.
     // https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
@@ -151,12 +157,11 @@ int main()
         return 3;
     }
 
-    // (4) Compile shader from file.
-    // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
+    // (4) Compile shader from constant text string.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
+    // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
 
     std::cout << "Compiling shader..." << std::endl;
-    LPCWSTR shaderFileName = L"Shader.hlsl";
     const D3D_SHADER_MACRO defines[] =
     {
         "USE_STRUCTURED_BUFFERS", "1",
@@ -166,18 +171,7 @@ int main()
     LPCSTR pProfile = (g_pDevice->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
     ID3DBlob* pErrorBlob = nullptr;
     ID3DBlob* pBlob = nullptr;
-    /*
-        hr = D3DCompileFromFile(
-            shaderFileName,                     // Pointer to shader source file name.
-            defines,                            // Pointer to shaders definitions as macro sequence.
-            D3D_COMPILE_STANDARD_FILE_INCLUDE,  // Default include mode.
-            pFunctionName,                      // Pointer to function name for entry point at shader source.
-            pProfile,                           // Pointer to shader feature description string.
-            D3DCOMPILE_ENABLE_STRICTNESS,       // Flags #1: strictness mode for shader source, reject legacy syntax.
-            0,                                  // Flags #2: none.
-            &pBlob,                             // Pointer for return pointer to compiled code.
-            &pErrorBlob);                       // Pointer for return pointer to error message string.
-    */
+
     hr = D3DCompile(
         SHADER_SOURCE,                      // Pointer to shader source text string.
         SHADER_SOURCE_LENGTH,               // Length of shader source text string, chars (chars=bytes for ASCII).
@@ -202,7 +196,7 @@ int main()
         return 4;
     }
 
-    // (5) Create shader.
+    // (5) Create shader from compiled blob.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createcomputeshader
 
     hr = g_pDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pCS);
@@ -221,6 +215,16 @@ int main()
 
     // (6) Creating buffers and filling them with initial data...
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
+    // Buffer descriptor layout, for buffer creating options control:
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_buffer_desc
+    // Setup optimal buffer usage model:
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_usage
+    // Buffer bind flags, purpose options:
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_bind_flag
+    // CPU access flags, enable read and/or write access from CPU to buffer:
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_cpu_access_flag
+    // Miscellaneous flags for buffer creating options:
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_resource_misc_flag
 
     std::cout << "Creating buffers and filling them with initial data..." << std::endl;
     for (int i = 0; i < NUM_ELEMENTS; ++i)
@@ -257,25 +261,29 @@ int main()
     // (7) Creating buffer views.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createunorderedaccessview
+    // Shader resource view descriptor:
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_shader_resource_view_desc
+    // Unordered access view descriptor:
+    // https://learn.microsoft.com/ru-ru/windows/win32/api/d3d11/ns-d3d11-d3d11_unordered_access_view_desc
 
     std::cout << "Creating buffer views..." << std::endl;
     D3D11_BUFFER_DESC descBuf = {};
     g_pBuf0->GetDesc(&descBuf);
-    D3D11_SHADER_RESOURCE_VIEW_DESC resDesc = {};
-    resDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
-    resDesc.BufferEx.FirstElement = 0;
     bool inconsistent = true;
     if (descBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
     {
+        D3D11_SHADER_RESOURCE_VIEW_DESC resDesc = {};
+        resDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+        resDesc.BufferEx.FirstElement = 0;
         resDesc.Format = DXGI_FORMAT_UNKNOWN;
         resDesc.BufferEx.NumElements = descBuf.ByteWidth / descBuf.StructureByteStride;
         hr = g_pDevice->CreateShaderResourceView(g_pBuf0, &resDesc, &g_pBuf0SRV);
         if (SUCCEEDED(hr))
         {
             g_pBuf1->GetDesc(&descBuf);
-            D3D11_SHADER_RESOURCE_VIEW_DESC resDesc = {};
             if (descBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
             {
+                D3D11_SHADER_RESOURCE_VIEW_DESC resDesc = {};
                 resDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
                 resDesc.BufferEx.FirstElement = 0;
                 resDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -285,9 +293,9 @@ int main()
                 {
                     D3D11_BUFFER_DESC descBuf = {};
                     g_pBufResult->GetDesc(&descBuf);
-                    D3D11_UNORDERED_ACCESS_VIEW_DESC resDesc = {};
                     if (descBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
                     {
+                        D3D11_UNORDERED_ACCESS_VIEW_DESC resDesc = {};
                         resDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
                         resDesc.Buffer.FirstElement = 0;
                         resDesc.Format = DXGI_FORMAT_UNKNOWN;      // Format must be must be DXGI_FORMAT_UNKNOWN, when creating a View of a Structured Buffer
@@ -306,8 +314,8 @@ int main()
         return 7;
     }
 
-    // (8) Running Compute Shader.
-    // Time measurement interval ends at this section.
+    // (8) Running compute shader.
+    // Time measurement interval starts at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-dispatch
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-cssetshader
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-cssetunorderedaccessviews
@@ -317,10 +325,10 @@ int main()
     // https://learn.microsoft.com/ru-ru/windows/win32/direct3dhlsl/sm5-attributes-numthreads
     // https://habr.com/ru/articles/248755/
 
-    std::cout << "Running Compute Shader..." << std::endl;
+    std::cout << "Running compute shader..." << std::endl;
     ID3D11ShaderResourceView* aRViews[2] = { g_pBuf0SRV, g_pBuf1SRV };
 
-    LARGE_INTEGER t1, t2;  // Start of measured interval.
+    LARGE_INTEGER t1, t2;  // Start of time measurement interval.
     t1.QuadPart = 0;
     BOOL b1 = QueryPerformanceCounter(&t1);
     t2.QuadPart = t1.QuadPart;
@@ -355,14 +363,13 @@ int main()
     }
 
     // (9) Read back the result from GPU, verify its correctness against result computed by CPU.
-    // Time measurement interval ends at this section.
+    // Time measurement interval ends at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-map
 
     std::cout << "Wait shader execution and read back the result from GPU..." << std::endl;
     BufType* p = nullptr;
-    ID3D11Buffer* readBackBuf = nullptr;
     D3D11_BUFFER_DESC rbufDesc = {};
     g_pBufResult->GetDesc(&rbufDesc);
     rbufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -373,31 +380,28 @@ int main()
     if (SUCCEEDED(hr))
     {
         g_pContext->CopyResource(readBackBuf, g_pBufResult);
-        D3D11_MAPPED_SUBRESOURCE MappedResource;
-        hr = g_pContext->Map(readBackBuf, 0, D3D11_MAP_READ, 0, &MappedResource);
+        D3D11_MAPPED_SUBRESOURCE mappedResource;
+        hr = g_pContext->Map(readBackBuf, 0, D3D11_MAP_READ, 0, &mappedResource);
         if (SUCCEEDED(hr))
         {
-            p = (BufType*)MappedResource.pData;
+            p = (BufType*)mappedResource.pData;
         }
     }
 
-    if (!p)
+    BOOL b3 = FALSE;  // End of time measurement interval.
+    if (b1 && b2)
+    {
+        b3 = QueryPerformanceCounter(&t1);
+    }
+
+    if ((!p) || (!b3))
     {
         std::cout << "Error reading back buffer, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
         return 9;
     }
 
-    BOOL b3 = FALSE;  // End of measured interval.
-    if (b1 && b2)
-    {
-        b3 = QueryPerformanceCounter(&t1);
-        seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
-        mbps = megabytes / seconds;
-        b3 = TRUE;
-    }
-
-    // (10) Verify that if Compute Shader has done right
+    // (10) Verify that if compute shader has done right
 
     std::cout << "Verifying against CPU result..." << std::endl;
 
@@ -415,15 +419,11 @@ int main()
     SAFE_RELEASE(readBackBuf);
 
     // (11) Check timings results.
-    if (b3)
-    {
-        std::cout << "Timer unit, seconds = " << timerSeconds << ", dispatch seconds = " << seconds << ", megabytes = " << megabytes << "." << std::endl;
-        std::cout << "MBPS = " << mbps << "." << std::endl;
-    }
-    else
-    {
-        std::cout << "Timings failed." << std::endl;
-    }
+
+    seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
+    mbps = megabytes / seconds;
+    std::cout << "Timer unit, seconds = " << timerSeconds << ", dispatch seconds = " << seconds << ", megabytes = " << megabytes << "." << std::endl;
+    std::cout << "MBPS = " << mbps << "." << std::endl;
 
     // (12) Cleaning up.
 
