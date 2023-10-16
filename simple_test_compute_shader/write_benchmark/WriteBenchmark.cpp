@@ -40,6 +40,7 @@ TODO.
 
 #include <windows.h>
 #include <iostream>
+#include <vector>
 #include <d3dcommon.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -59,9 +60,13 @@ struct BufType
 constexpr BOOL PCIE_MODE = FALSE;   // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
                                     // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
                                     // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
+
+#define DEFAULT_ADAPTER -1
+constexpr int ADAPTER_INDEX = DEFAULT_ADAPTER;         // -1  or index overflow means default selection, otherwise index in the list, 0-based.
+
 constexpr UINT NUM_X = 512;
 constexpr UINT NUM_Y = 512;
-constexpr UINT NUM_Z = 64;
+constexpr UINT NUM_Z = 16;
 
 constexpr UINT NUM_ELEMENTS = NUM_X * NUM_Y * NUM_Z;   // Original MSDN value is 1024. Changed for benchmark. Note about differrent limits for x64 and ia32 builds.
 constexpr UINT NUM_ARRAYS = 1;                         // One destination array for write, write traffic bandwidth measured at this example.
@@ -121,7 +126,7 @@ void cleaningUp()
 
 int main()
 {
-    std::cout << "Compute shader with write benchmark. v0.1.1." << std::endl;
+    std::cout << "Compute shader with write benchmark. v0.1.2." << std::endl;
     std::cout << "Based on MSDN information and sources." << std::endl << std::endl;
 
     // (1) Initializing timers.
@@ -141,15 +146,63 @@ int main()
     double seconds = 0.0;
     double gbps = 0.0;
 
-    // (2) Create device.
+
+    // (2) List video adapters devices.
+    // https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nn-dxgi-idxgifactory
+    // https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-createdxgifactory
+    // https://learn.microsoft.com/ru-ru/windows/win32/api/dxgi/nn-dxgi-idxgiadapter
+    // https://learn.microsoft.com/ru-ru/windows/win32/api/dxgi/ns-dxgi-dxgi_adapter_desc
+    // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/wcstombs-wcstombs-l?view=msvc-170
+    
+    IDXGIFactory* factory;
+    std::vector<IDXGIAdapter*> adapters;
+    HRESULT hr = CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&factory);
+    if (SUCCEEDED(hr))
+    {
+        IDXGIAdapter* adapter;
+        for (UINT i = 0; factory->EnumAdapters(i, &adapter) != DXGI_ERROR_NOT_FOUND; i++)
+            adapters.push_back(adapter);
+        factory->Release();
+        std::cout << std::endl << "Adapters list..." << std::endl;
+        int index = 0;
+        for (auto a : adapters)
+        {
+            DXGI_ADAPTER_DESC aDesc;
+            if (SUCCEEDED(a->GetDesc(&aDesc)))
+            {
+                WCHAR* pWname = aDesc.Description;
+                CHAR pName[128];
+                size_t count = 0;
+                wcstombs_s(&count, pName, pWname, 128);
+                std::cout << "[" << index << "]" << "[" << pName << "]" << std::endl;
+            }
+            index++;
+        }
+        std::cout << std::endl;
+    }
+    else
+    {
+        std::cout << "Error creating DXGI factory, HRESULT=" << std::hex << hr << "h." << std::endl;
+        cleaningUp();
+        return 2;
+    }
+
+    // (3) Create device.
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3d11/nf-d3d11-d3d11createdevice
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3dcommon/ne-d3dcommon-d3d_feature_level
 
     std::cout << "Create device..." << std::endl;
     static const D3D_FEATURE_LEVEL featureLevelIn[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0 };
     D3D_FEATURE_LEVEL featureLevelOut;
 
-    HRESULT hr = D3D11CreateDevice(
-        nullptr,                              // Pointer to video adapter interface (IDXGIAdapter*), nullptr means use default graphics card.
+    IDXGIAdapter* pAdapter = nullptr;
+    if ((ADAPTER_INDEX > 0) && (ADAPTER_INDEX < adapters.size()))
+    {
+        pAdapter = adapters[ADAPTER_INDEX];
+    }
+
+    hr = D3D11CreateDevice(
+        pAdapter,                             // Pointer to video adapter interface (IDXGIAdapter*), or nullptr means use default graphics card.
         D3D_DRIVER_TYPE_HARDWARE,             // Driver type, try to create a hardware accelerated device.
         nullptr,                              // DLL descriptor for software rasterizer, nullptr means do not use external software rasterizer module.
         D3D11_CREATE_DEVICE_SINGLETHREADED,   // Device creation flags.
@@ -164,10 +217,10 @@ int main()
     {
         std::cout << "Error creating device, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 2;
+        return 3;
     }
 
-    // (3) Compile shader from constant text string and dynamically created defines string.
+    // (4) Compile shader from constant text string and dynamically created defines string.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
 
@@ -214,10 +267,10 @@ int main()
         SAFE_RELEASE(pErrorBlob);
         SAFE_RELEASE(pBlob);
         cleaningUp();
-        return 3;
+        return 4;
     }
 
-    // (4) Create shader from compiled blob.
+    // (5) Create shader from compiled blob.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createcomputeshader
 
     hr = g_pDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pCS);
@@ -229,12 +282,12 @@ int main()
         SAFE_RELEASE(pErrorBlob);
         SAFE_RELEASE(pBlob);
         cleaningUp();
-        return 4;
+        return 5;
     }
     SAFE_RELEASE(pErrorBlob);
     SAFE_RELEASE(pBlob);
 
-    // (5) Creating destination buffer.
+    // (6) Creating destination buffer.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // Buffer descriptor layout, for buffer creating options control:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_buffer_desc
@@ -267,10 +320,10 @@ int main()
     {
         std::cout << "Error creating buffer objects, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 5;
+        return 6;
     }
 
-    // (6) Creating buffer views.
+    // (7) Creating buffer views.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createunorderedaccessview
     // Shader resource view descriptor:
@@ -296,10 +349,10 @@ int main()
     {
         std::cout << "Error creating buffer views, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 6;
+        return 7;
     }
 
-    // (7) Running compute shader.
+    // (8) Running compute shader.
     // Time measurement interval starts at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-dispatch
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-cssetshader
@@ -344,10 +397,10 @@ int main()
     {
         std::cout << "Error running shader, timer failed." << std::endl;
         cleaningUp();
-        return 7;
+        return 8;
     }
 
-    // (8) Read back the data from GPU, verify its correctness against data computed by CPU.
+    // (9) Read back the data from GPU, verify its correctness against data computed by CPU.
     // Time measurement interval ends at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
@@ -383,10 +436,10 @@ int main()
     {
         std::cout << "Error reading back buffer, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 8;
+        return 9;
     }
 
-    // (9) Verify that if compute shader has done right.
+    // (10) Verify that if compute shader has done right.
 
     std::cout << "Verifying against CPU result..." << std::endl;
     bool verifyError = false;
@@ -407,7 +460,9 @@ int main()
                     break;
                 }
             }
+            if (verifyError) break;
         }
+        if (verifyError) break;
     }
     g_pContext->Unmap(readBackBuf, 0);
 
@@ -420,7 +475,7 @@ int main()
         std::cout << std::endl << "PASSED. GPU and CPU data match." << std::endl;
     }
  
-    // (10) Check timings results.
+    // (11) Check timings results.
 
     seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
     gbps = gigabytes / seconds;
@@ -434,7 +489,7 @@ int main()
         std::cout << "GPU write bandwidth (GPU to Video RAM) = " << gbps << " GBPS." << std::endl;
     }
 
-    // (11) Cleaning up.
+    // (12) Cleaning up.
 
     std::cout << "Cleaning up..." << std::endl;
     cleaningUp();
