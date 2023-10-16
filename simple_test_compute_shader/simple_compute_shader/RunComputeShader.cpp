@@ -1,4 +1,7 @@
 /*
+
+Simple compute shader example.
+https://github.com/manusov/LearningVisualStudio
 Fragment with isolation some code from MSDN example for learn it.
 Original MSDN Compute Shaders example:
 https://github.com/walbourn/directx-sdk-samples/tree/main/BasicCompute11
@@ -6,6 +9,10 @@ See also:
 https://github.com/walbourn/directx-sdk-samples
 https://learn.microsoft.com/ru-ru/windows/win32/direct3d11/direct3d-11-advanced-stages-compute-create
 https://learn.microsoft.com/en-us/windows/win32/direct3d11/direct3d-11-advanced-stages-compute-shader
+Special thanks to:
+https://ravesli.com/uroki-po-opengl/
+https://ravesli.com/uroki-cpp/
+
 TODO.
 1)  + Make clean-up for error branches also.
 2)  - Make helper functions if required for optimization.
@@ -23,6 +30,7 @@ TODO.
     Otherwise overhead measurement instead really shader performance?
 8)  Learn GPU features and select calculation scenario.
 9)  See parallel NCRB DRAM bandwidth drawings. GPU access cached in the video memory?
+
 */
 
 #include <windows.h>
@@ -95,7 +103,8 @@ void cleaningUp()
 
 int main()
 {
-    std::cout << "Run compute shader sample. v0.0.1. Based on MSDN examples." << std::endl << std::endl;
+    std::cout << "Simple compute shader. v0.1.0." << std::endl;
+    std::cout << "Based on MSDN information and sources." << std::endl << std::endl;
 
     // (1) Initializing timers.
     // https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
@@ -416,7 +425,6 @@ int main()
     if (bSuccess)
         std::cout << std::endl << "PASSED. GPU and CPU calculation match." << std::endl;
     g_pContext->Unmap(readBackBuf, 0);
-    SAFE_RELEASE(readBackBuf);
 
     // (11) Check timings results.
 
