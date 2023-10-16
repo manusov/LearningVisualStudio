@@ -56,6 +56,9 @@ struct BufType
     int pad;
 };
 
+constexpr BOOL PCIE_MODE = FALSE;   // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
+                                    // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
+                                    // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
 constexpr UINT NUM_X = 512;
 constexpr UINT NUM_Y = 512;
 constexpr UINT NUM_Z = 64;
@@ -118,7 +121,7 @@ void cleaningUp()
 
 int main()
 {
-    std::cout << "Compute shader with write benchmark. v0.1.0." << std::endl;
+    std::cout << "Compute shader with write benchmark. v0.1.1." << std::endl;
     std::cout << "Based on MSDN information and sources." << std::endl << std::endl;
 
     // (1) Initializing timers.
@@ -246,8 +249,17 @@ int main()
 
     std::cout << "Creating destination buffer..." << std::endl;
     D3D11_BUFFER_DESC bufDesc = {};
-    bufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
     bufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
+    bufDesc.Usage = D3D11_USAGE_DEFAULT;
+    bufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+    if (PCIE_MODE)
+    {
+        bufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    }
+    else
+    {
+        bufDesc.CPUAccessFlags = 0;
+    }
     bufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     bufDesc.StructureByteStride = sizeof(BufType);
     hr = g_pDevice->CreateBuffer(&bufDesc, nullptr, &g_pBufResult);
@@ -275,7 +287,7 @@ int main()
         D3D11_UNORDERED_ACCESS_VIEW_DESC resDesc = {};
         resDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
         resDesc.Buffer.FirstElement = 0;
-        resDesc.Format = DXGI_FORMAT_UNKNOWN;      // Format must be must be DXGI_FORMAT_UNKNOWN, when creating a View of a Structured Buffer
+        resDesc.Format = DXGI_FORMAT_UNKNOWN;      // Format must be must be DXGI_FORMAT_UNKNOWN, when creating a View of a Structured Buffer.
         resDesc.Buffer.NumElements = descBuf.ByteWidth / descBuf.StructureByteStride;
         hr = g_pDevice->CreateUnorderedAccessView(g_pBufResult, &resDesc, &g_pBufResultUAV);
         inconsistent = false;
@@ -374,16 +386,16 @@ int main()
         return 8;
     }
 
-    // (9) Verify that if compute shader has done right
+    // (9) Verify that if compute shader has done right.
 
     std::cout << "Verifying against CPU result..." << std::endl;
     bool verifyError = false;
     int i = 0, j = 0, k = 0;
-    for (int i = 0; i < NUM_Z; ++i)
+    for (i = 0; i < NUM_Z; ++i)
     {
-        for (int j = 0; j < NUM_Y; ++j)
+        for (j = 0; j < NUM_Y; ++j)
         {
-            for (int k = 0; k < NUM_X; ++k)
+            for (k = 0; k < NUM_X; ++k)
             {
                 int checkX = p[k + j * STEP_Y + i * STEP_Z].x;
                 int checkY = p[k + j * STEP_Y + i * STEP_Z].y;
@@ -413,7 +425,14 @@ int main()
     seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
     gbps = gigabytes / seconds;
     std::cout << "Timer unit (seconds) = " << timerSeconds << ", shader dispatch (seconds) = " << seconds << ", gigabytes = " << gigabytes << "." << std::endl;
-    std::cout << "GPU write bandwidth = " << gbps << " GBPS." << std::endl;
+    if (PCIE_MODE)
+    {
+        std::cout << "GPU write bandwidth (GPU to System RAM) = " << gbps << " GBPS." << std::endl;
+    }
+    else
+    {
+        std::cout << "GPU write bandwidth (GPU to Video RAM) = " << gbps << " GBPS." << std::endl;
+    }
 
     // (11) Cleaning up.
 
