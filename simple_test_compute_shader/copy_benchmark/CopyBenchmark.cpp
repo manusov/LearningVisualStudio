@@ -1,7 +1,7 @@
 /*
 
 Compute shader example. Bandwidth measurement for:
-GPU-initiated write to Video memory (over video card local bus) and System memory (over PCIe).
+GPU-initiated write and copy operations.
 https://github.com/manusov/LearningVisualStudio
 Fragment with isolation some code from MSDN example for learn it.
 Original MSDN Compute Shaders example:
@@ -59,13 +59,18 @@ struct BufType
     int pad;
 };
 
-constexpr BOOL PCIE_MODE = FALSE;   // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
-                                    // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
-                                    // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
+// Select operation, FALSE = Memory Write, TRUE = Memory Copy.
+constexpr BOOL COPY_MODE = FALSE;
+
+// Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
+// Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
+// FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
+constexpr BOOL SRC_PCIE_MODE = FALSE;      // This flag controls SOURCE data location for copy. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL DST_PCIE_MODE = FALSE;      // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
 
 #define DEFAULT_ADAPTER -1
-constexpr int ADAPTER_INDEX = DEFAULT_ADAPTER;         // -1  or index overflow means default selection, otherwise index in the list, 0-based.
-
+constexpr int ADAPTER_INDEX = DEFAULT_ADAPTER;    // -1  or index overflow means default selection, otherwise index in the list, 0-based.
+                                                  // Note test non-active adapter can fail, use adapter selection for application at Windows (left mouse button).
 constexpr UINT NUM_X = 512;
 constexpr UINT NUM_Y = 512;
 constexpr UINT NUM_Z = 16;
@@ -88,14 +93,20 @@ constexpr UINT STEP_Z = SHADER_X * DISPATCH_X * SHADER_Y * DISPATCH_Y;
 constexpr DWORD64 ALLOCATED_BYTES = (DWORD64)NUM_ELEMENTS * sizeof(BufType);
 constexpr double MEASURED_BYTES = (DWORD64)ALLOCATED_BYTES * NUM_ARRAYS * NUM_REPEATS;
 
+BufType* g_vBuf0 = nullptr;
+BufType* g_vBuf1 = nullptr;
 ID3D11Device* g_pDevice = nullptr;
 ID3D11DeviceContext* g_pContext = nullptr;
 ID3D11ComputeShader* g_pCS = nullptr;
+ID3D11Buffer* g_pBuf0 = nullptr;
+ID3D11Buffer* g_pBuf1 = nullptr;
 ID3D11Buffer* g_pBufResult = nullptr;
+ID3D11ShaderResourceView* g_pBuf0SRV = nullptr;
+ID3D11ShaderResourceView* g_pBuf1SRV = nullptr;
 ID3D11UnorderedAccessView* g_pBufResultUAV = nullptr;
 ID3D11Buffer* readBackBuf = nullptr;
 
-const char SHADER_SOURCE[] =
+const char SHADER_SOURCE_WRITE_BANDWIDTH[] =
 "struct BufType\r\n"
 "{\r\n"
 "int x;\r\n"
@@ -112,21 +123,49 @@ const char SHADER_SOURCE[] =
 "BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].z = DTid.z;\r\n"
 "BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].pad = 0xFFFFFFFF;\r\n"
 "}\0";
-const UINT SHADER_SOURCE_LENGTH = sizeof(SHADER_SOURCE) - 1;
+
+const char SHADER_SOURCE_COPY_BANDWIDTH[] =
+"struct BufType\r\n"
+"{\r\n"
+"int x;\r\n"
+"int y;\r\n"
+"int z;\r\n"
+"int pad;\r\n"
+"};\r\n"
+"StructuredBuffer<BufType> Buffer0 : register(t0);\r\n"
+"StructuredBuffer<BufType> Buffer1 : register(t1);\r\n"
+"RWStructuredBuffer<BufType> BufferOut : register(u0);\r\n"
+"[numthreads(SHADER_X, SHADER_Y, SHADER_Z)]\r\n"
+"void CSMain(uint3 DTid : SV_DispatchThreadID)\r\n"
+"{\r\n"
+"BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].x = Buffer0[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].x;\r\n"
+"BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].y = Buffer0[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].y;\r\n"
+"BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].z = Buffer0[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].z;\r\n"
+"BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].pad = Buffer0[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].pad;\r\n"
+"}\0";
+
+const UINT SHADER_SOURCE_LENGTH_WRITE = sizeof(SHADER_SOURCE_WRITE_BANDWIDTH) - 1;
+const UINT SHADER_SOURCE_LENGTH_COPY = sizeof(SHADER_SOURCE_COPY_BANDWIDTH) - 1;
 
 void cleaningUp()
 {
     SAFE_RELEASE(readBackBuf);
+    SAFE_RELEASE(g_pBuf0SRV);
+    SAFE_RELEASE(g_pBuf1SRV);
     SAFE_RELEASE(g_pBufResultUAV);
+    SAFE_RELEASE(g_pBuf0);
+    SAFE_RELEASE(g_pBuf1);
     SAFE_RELEASE(g_pBufResult);
     SAFE_RELEASE(g_pCS);
     SAFE_RELEASE(g_pContext);
     SAFE_RELEASE(g_pDevice);
+    if (g_vBuf1) { _aligned_free(g_vBuf1); }
+    if (g_vBuf0) { _aligned_free(g_vBuf0); }
 }
 
 int main()
 {
-    std::cout << "Compute shader with write benchmark. v0.1.3." << std::endl;
+    std::cout << "Compute shader with DRAM/VRAM bandwidth measurement. v0.2.0." << std::endl;
     std::cout << "Based on MSDN information and sources." << std::endl << std::endl;
 
     // (1) Initializing timers.
@@ -146,14 +185,31 @@ int main()
     double seconds = 0.0;
     double gbps = 0.0;
 
+    // (2) Allocate memory.
+    // Note second source buffer reserved for algoritms updates, yet not used.
+    // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/malloc?view=msvc-170
+    // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/aligned-free?view=msvc-170
 
-    // (2) List video adapters devices.
+    std::cout << "Allocate memory..." << std::endl;
+    g_vBuf0 = reinterpret_cast<BufType*>(_aligned_malloc(ALLOCATED_BYTES, 16));
+    if (g_vBuf0)
+    {
+        g_vBuf1 = reinterpret_cast<BufType*>(_aligned_malloc(ALLOCATED_BYTES, 16));
+    }
+    if ((!g_vBuf0) || (!g_vBuf1))
+    {
+        std::cout << "Memory allocation error." << std::endl;
+        cleaningUp();
+        return 2;
+    }
+
+    // (3) List video adapters devices.
     // https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nn-dxgi-idxgifactory
     // https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-createdxgifactory
     // https://learn.microsoft.com/ru-ru/windows/win32/api/dxgi/nn-dxgi-idxgiadapter
     // https://learn.microsoft.com/ru-ru/windows/win32/api/dxgi/ns-dxgi-dxgi_adapter_desc
     // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/wcstombs-wcstombs-l?view=msvc-170
-    
+
     IDXGIFactory* factory;
     std::vector<IDXGIAdapter*> adapters;
     HRESULT hr = CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&factory);
@@ -184,10 +240,10 @@ int main()
     {
         std::cout << "Error creating DXGI factory, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 2;
+        return 3;
     }
 
-    // (3) Create device.
+    // (4) Create device.
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3d11/nf-d3d11-d3d11createdevice
     // https://learn.microsoft.com/en-us/windows/win32/api/d3dcommon/ne-d3dcommon-d3d_feature_level
 
@@ -217,10 +273,10 @@ int main()
     {
         std::cout << "Error creating device, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 3;
+        return 4;
     }
 
-    // (4) Compile shader from constant text string and dynamically created defines string.
+    // (5) Compile shader from constant text string and dynamically created defines string.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
 
@@ -246,9 +302,22 @@ int main()
     ID3DBlob* pErrorBlob = nullptr;
     ID3DBlob* pBlob = nullptr;
 
+    LPCVOID pSrcData = nullptr;
+    SIZE_T srcDataSize = 0;
+    if (COPY_MODE)
+    {
+        pSrcData = SHADER_SOURCE_COPY_BANDWIDTH;
+        srcDataSize = SHADER_SOURCE_LENGTH_COPY;
+    }
+    else
+    {
+        pSrcData = SHADER_SOURCE_WRITE_BANDWIDTH;
+        srcDataSize = SHADER_SOURCE_LENGTH_WRITE;
+    }
+    
     hr = D3DCompile(
-        SHADER_SOURCE,                      // Pointer to shader source text string.
-        SHADER_SOURCE_LENGTH,               // Length of shader source text string, chars (chars=bytes for ASCII).
+        pSrcData,                           // Pointer to shader source text string.
+        srcDataSize,                        // Length of shader source text string, chars (chars=bytes for ASCII).
         nullptr,                            // Pointer to shader name for error messages, not used here.
         defines,                            // Pointer to shaders definitions as macro sequence.
         D3D_COMPILE_STANDARD_FILE_INCLUDE,  // Default include mode.
@@ -267,10 +336,10 @@ int main()
         SAFE_RELEASE(pErrorBlob);
         SAFE_RELEASE(pBlob);
         cleaningUp();
-        return 4;
+        return 5;
     }
 
-    // (5) Create shader from compiled blob.
+    // (6) Create shader from compiled blob.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createcomputeshader
 
     hr = g_pDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pCS);
@@ -282,12 +351,59 @@ int main()
         SAFE_RELEASE(pErrorBlob);
         SAFE_RELEASE(pBlob);
         cleaningUp();
-        return 5;
+        return 6;
     }
     SAFE_RELEASE(pErrorBlob);
     SAFE_RELEASE(pBlob);
 
-    // (6) Creating destination buffer.
+    // (7) Generate test pattern and creating source buffers.
+    // Note second source buffer reserved for algoritms updates, yet not used.
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
+
+    std::cout << "Creating source buffers and filling them with initial data..." << std::endl;
+    for (int i = 0; i < NUM_ELEMENTS; ++i)
+    {
+        g_vBuf0[i].x = i;
+        g_vBuf0[i].y = i + 3;
+        g_vBuf0[i].z = 7 - i;
+        g_vBuf0[i].pad = 0x55555555;
+
+        g_vBuf1[i].x = 0;
+        g_vBuf1[i].y = 0;
+        g_vBuf1[i].z = 0;
+        g_vBuf1[i].pad = 0;
+    }
+
+    D3D11_BUFFER_DESC srcBufDesc = {};
+    srcBufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
+    srcBufDesc.Usage = D3D11_USAGE_DEFAULT;
+    srcBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+    if (SRC_PCIE_MODE)
+    {
+        srcBufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    }
+    else
+    {
+        srcBufDesc.CPUAccessFlags = 0;
+    }
+    
+    srcBufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    srcBufDesc.StructureByteStride = sizeof(BufType);
+    D3D11_SUBRESOURCE_DATA initData;
+    initData.pSysMem = &g_vBuf0[0];
+    hr = g_pDevice->CreateBuffer(&srcBufDesc, &initData, &g_pBuf0);
+    if (SUCCEEDED(hr))
+    {
+        hr = g_pDevice->CreateBuffer(&srcBufDesc, &initData, &g_pBuf1);
+    }
+    if (FAILED(hr))
+    {
+        std::cout << "Error creating source buffer objects, HRESULT=" << std::hex << hr << "h." << std::endl;
+        cleaningUp();
+        return 7;
+    }
+
+    // (8) Creating destination buffer.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // Buffer descriptor layout, for buffer creating options control:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_buffer_desc
@@ -301,29 +417,72 @@ int main()
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_resource_misc_flag
 
     std::cout << "Creating destination buffer..." << std::endl;
-    D3D11_BUFFER_DESC bufDesc = {};
-    bufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
-    bufDesc.Usage = D3D11_USAGE_DEFAULT;
-    bufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-    if (PCIE_MODE)
+    D3D11_BUFFER_DESC dstBufDesc = {};
+    dstBufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
+    dstBufDesc.Usage = D3D11_USAGE_DEFAULT;
+    dstBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+    if (DST_PCIE_MODE)
     {
-        bufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        dstBufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     }
     else
     {
-        bufDesc.CPUAccessFlags = 0;
+        dstBufDesc.CPUAccessFlags = 0;
     }
-    bufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    bufDesc.StructureByteStride = sizeof(BufType);
-    hr = g_pDevice->CreateBuffer(&bufDesc, nullptr, &g_pBufResult);
+    dstBufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    dstBufDesc.StructureByteStride = sizeof(BufType);
+    hr = g_pDevice->CreateBuffer(&dstBufDesc, nullptr, &g_pBufResult);
     if (FAILED(hr))
     {
-        std::cout << "Error creating buffer objects, HRESULT=" << std::hex << hr << "h." << std::endl;
+        std::cout << "Error creating destination buffer objects, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 6;
+        return 8;
     }
 
-    // (7) Creating buffer views.
+    // (9) Creating source buffers views.
+    // Note second source buffer reserved for algoritms updates, yet not used.
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createunorderedaccessview
+    // Shader resource view descriptor:
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_shader_resource_view_desc
+    // Unordered access view descriptor:
+    // https://learn.microsoft.com/ru-ru/windows/win32/api/d3d11/ns-d3d11-d3d11_unordered_access_view_desc
+
+    std::cout << "Creating source buffers views..." << std::endl;
+    D3D11_BUFFER_DESC descSrcBuf = {};
+    g_pBuf0->GetDesc(&descSrcBuf);
+    bool srcInconsistent = true;
+    if (descSrcBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
+    {
+        D3D11_SHADER_RESOURCE_VIEW_DESC resDesc = {};
+        resDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+        resDesc.BufferEx.FirstElement = 0;
+        resDesc.Format = DXGI_FORMAT_UNKNOWN;
+        resDesc.BufferEx.NumElements = descSrcBuf.ByteWidth / descSrcBuf.StructureByteStride;
+        hr = g_pDevice->CreateShaderResourceView(g_pBuf0, &resDesc, &g_pBuf0SRV);
+        if (SUCCEEDED(hr))
+        {
+            g_pBuf1->GetDesc(&descSrcBuf);
+            if (descSrcBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
+            {
+                D3D11_SHADER_RESOURCE_VIEW_DESC resDesc = {};
+                resDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+                resDesc.BufferEx.FirstElement = 0;
+                resDesc.Format = DXGI_FORMAT_UNKNOWN;
+                resDesc.BufferEx.NumElements = descSrcBuf.ByteWidth / descSrcBuf.StructureByteStride;
+                hr = g_pDevice->CreateShaderResourceView(g_pBuf1, &resDesc, &g_pBuf1SRV);
+                srcInconsistent = false;
+            }
+        }
+    }
+    if (FAILED(hr) || srcInconsistent)
+    {
+        std::cout << "Error creating buffer views, HRESULT=" << std::hex << hr << "h." << std::endl;
+        cleaningUp();
+        return 9;
+    }
+
+    // (10) Creating destination buffer view.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createunorderedaccessview
     // Shader resource view descriptor:
@@ -332,27 +491,27 @@ int main()
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3d11/ns-d3d11-d3d11_unordered_access_view_desc
 
     std::cout << "Creating destination buffer view..." << std::endl;
-    D3D11_BUFFER_DESC descBuf = {};
-    g_pBufResult->GetDesc(&descBuf);
-    bool inconsistent = true;
-    if (descBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
+    D3D11_BUFFER_DESC descDstBuf = {};
+    g_pBufResult->GetDesc(&descDstBuf);
+    bool dstInconsistent = true;
+    if (descDstBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
     {
         D3D11_UNORDERED_ACCESS_VIEW_DESC resDesc = {};
         resDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
         resDesc.Buffer.FirstElement = 0;
         resDesc.Format = DXGI_FORMAT_UNKNOWN;      // Format must be must be DXGI_FORMAT_UNKNOWN, when creating a View of a Structured Buffer.
-        resDesc.Buffer.NumElements = descBuf.ByteWidth / descBuf.StructureByteStride;
+        resDesc.Buffer.NumElements = descDstBuf.ByteWidth / descDstBuf.StructureByteStride;
         hr = g_pDevice->CreateUnorderedAccessView(g_pBufResult, &resDesc, &g_pBufResultUAV);
-        inconsistent = false;
+        dstInconsistent = false;
     }
-    if (FAILED(hr) || inconsistent)
+    if (FAILED(hr) || dstInconsistent)
     {
         std::cout << "Error creating buffer views, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 7;
+        return 10;
     }
 
-    // (8) Running compute shader.
+    // (11) Running compute shader.
     // Time measurement interval starts at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-dispatch
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-cssetshader
@@ -364,7 +523,8 @@ int main()
     // https://habr.com/ru/articles/248755/
 
     std::cout << "Running compute shader..." << std::endl;
-    ID3D11ShaderResourceView* aRViews[2] = { nullptr, nullptr };
+    // ID3D11ShaderResourceView* aRViews[2] = { nullptr, nullptr };
+    ID3D11ShaderResourceView* aRViews[2] = { g_pBuf0SRV, g_pBuf1SRV };
 
     LARGE_INTEGER t1, t2;  // Start of time measurement interval.
     t1.QuadPart = 0;
@@ -397,10 +557,10 @@ int main()
     {
         std::cout << "Error running shader, timer failed." << std::endl;
         cleaningUp();
-        return 8;
+        return 11;
     }
 
-    // (9) Read back the data from GPU, verify its correctness against data computed by CPU.
+    // (12) Read back the data from GPU, verify its correctness against data computed by CPU.
     // Time measurement interval ends at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
@@ -436,60 +596,112 @@ int main()
     {
         std::cout << "Error reading back buffer, HRESULT=" << std::hex << hr << "h." << std::endl;
         cleaningUp();
-        return 9;
+        return 12;
     }
 
-    // (10) Verify that if compute shader has done right.
+    // (13) Verify that if compute shader has done right.
 
     std::cout << "Verifying against CPU result..." << std::endl;
     bool verifyError = false;
     int i = 0, j = 0, k = 0;
-    for (i = 0; i < NUM_Z; ++i)
+
+    if (COPY_MODE)
     {
-        for (j = 0; j < NUM_Y; ++j)
+        for (i = 0; i < NUM_ELEMENTS; ++i)
         {
-            for (k = 0; k < NUM_X; ++k)
+            int checkX = p[i].x;
+            int checkY = p[i].y;
+            int checkZ = p[i].z;
+            int checkP = p[i].pad;
+            if ((checkX != i) || (checkY != (i + 3)) || (checkZ != (7 - i)) || (checkP != 0x55555555))
             {
-                int checkX = p[k + j * STEP_Y + i * STEP_Z].x;
-                int checkY = p[k + j * STEP_Y + i * STEP_Z].y;
-                int checkZ = p[k + j * STEP_Y + i * STEP_Z].z;
-                int checkP = p[k + j * STEP_Y + i * STEP_Z].pad;
-                if ((checkX != k) || (checkY != j) || (checkZ != i) || (checkP != 0xFFFFFFFF))
+                verifyError = true;
+                break;
+            }
+        }
+    }
+    else
+    {
+        for (i = 0; i < NUM_Z; ++i)
+        {
+            for (j = 0; j < NUM_Y; ++j)
+            {
+                for (k = 0; k < NUM_X; ++k)
                 {
-                    verifyError = true;
-                    break;
+                    int checkX = p[k + j * STEP_Y + i * STEP_Z].x;
+                    int checkY = p[k + j * STEP_Y + i * STEP_Z].y;
+                    int checkZ = p[k + j * STEP_Y + i * STEP_Z].z;
+                    int checkP = p[k + j * STEP_Y + i * STEP_Z].pad;
+                    if ((checkX != k) || (checkY != j) || (checkZ != i) || (checkP != 0xFFFFFFFF))
+                    {
+                        verifyError = true;
+                        break;
+                    }
                 }
+                if (verifyError) break;
             }
             if (verifyError) break;
         }
-        if (verifyError) break;
     }
+
     g_pContext->Unmap(readBackBuf, 0);
 
     if (verifyError)
     {
-        std::cout << std::endl << "FAILED. GPU and CPU data mismatch. X=" << k << ", Y=" << j << ", Z=" << i << "." << std::endl;
+        if (COPY_MODE)
+        {
+            std::cout << std::endl << "COPY FAILED. GPU and CPU data mismatch. INDEX=" << i << "." << std::endl;
+        }
+        else
+        {
+            std::cout << std::endl << "WRITE FAILED. GPU and CPU data mismatch. X=" << k << ", Y=" << j << ", Z=" << i << "." << std::endl;
+        }
     }
     else
     {
         std::cout << std::endl << "PASSED. GPU and CPU data match." << std::endl;
     }
- 
-    // (11) Check and calculate timings results.
+
+    // (13) Check and calculate timings results.
 
     seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
     gbps = gigabytes / seconds;
     std::cout << "Timer unit (seconds) = " << timerSeconds << ", shader dispatch (seconds) = " << seconds << ", gigabytes = " << gigabytes << "." << std::endl;
-    if (PCIE_MODE)
+    
+    if (COPY_MODE)
     {
-        std::cout << "GPU write bandwidth (GPU to System RAM) = " << gbps << " GBPS." << std::endl;
+
+
+        if ((!SRC_PCIE_MODE) && (!DST_PCIE_MODE))
+        {
+            std::cout << "GPU copy bandwidth (VRAM-VRAM) = " << gbps << " GBPS." << std::endl;
+        }
+        else if ((!SRC_PCIE_MODE) && (DST_PCIE_MODE))
+        {
+            std::cout << "GPU copy bandwidth (VRAM-DRAM) = " << gbps << " GBPS." << std::endl;
+        }
+        else if ((SRC_PCIE_MODE) && (!DST_PCIE_MODE))
+        {
+            std::cout << "GPU copy bandwidth (DRAM-VRAM) = " << gbps << " GBPS." << std::endl;
+        }
+        else
+        {
+            std::cout << "GPU copy bandwidth (DRAM-DRAM) = " << gbps << " GBPS." << std::endl;
+        }
     }
     else
     {
-        std::cout << "GPU write bandwidth (GPU to Video RAM) = " << gbps << " GBPS." << std::endl;
+        if (!DST_PCIE_MODE)
+        {
+            std::cout << "GPU write bandwidth (GPU -> Video RAM) = " << gbps << " GBPS." << std::endl;
+        }
+        else
+        {
+            std::cout << "GPU write bandwidth (GPU -> System DRAM) = " << gbps << " GBPS." << std::endl;
+        }
     }
 
-    // (12) Cleaning up.
+    // (14) Cleaning up.
 
     std::cout << "Cleaning up..." << std::endl;
     cleaningUp();
