@@ -1,8 +1,7 @@
 /*
-
-Compute shader example. Bandwidth measurement for:
-GPU-initiated write and copy operations.
-https://github.com/manusov/LearningVisualStudio
+Example how use compute shader for low-level GPU benchmarking.
+DRAM/VRAM/PCIe Read/Write/Copy/Latency measurement.
+https://github.com/manusov/LearningVisualStudio/tree/master/simple_test_compute_shader
 Fragment with isolation some code from MSDN example for learn it.
 Original MSDN Compute Shaders example:
 https://github.com/walbourn/directx-sdk-samples/tree/main/BasicCompute11
@@ -10,39 +9,25 @@ See also:
 https://github.com/walbourn/directx-sdk-samples
 https://learn.microsoft.com/ru-ru/windows/win32/direct3d11/direct3d-11-advanced-stages-compute-create
 https://learn.microsoft.com/en-us/windows/win32/direct3d11/direct3d-11-advanced-stages-compute-shader
+Fundamental theory:
+https://www.overclockers.ua/video/gpu-evolution/
 Special thanks to:
 https://ravesli.com/uroki-po-opengl/
 https://ravesli.com/uroki-cpp/
-
 TODO.
-1)  + Make clean-up for error branches also.
-2)  - Make helper functions if required for optimization.
-3)  + Make memory allocation (dynamical arrays) for big buffers.
-4)   Add DISPATCH_Y and DISPATCH_Z.
-5)   How optimize shader for utilize full PCIe traffic (for example: 32GB/S PCIe 4.0 x16)?
-6)   How optimize shader for utilize full discrette local Video RAM traffic?
-     Change calculation type, allocation flags, traffic architecture (Rx/Tx ratio).
-7)   How select between system DRAM and GPU memory for allocate buffers?
-     Note about buffers can be cached in the GPU memory when measurement repeats used.
-8)   Error reading back buffer if simultaneously output to screen (by VS IDE for example).
-9)   Learn GPU topology and optimize threads.
-     See Dispatch(X,Y,Z) and [numthreads(1, 1, 1)] at shader.
-     Optimize work size per one shader call.
-     Too many shader calls at current variant?
-     More work per one shader call is better for benchmarking?
-     Otherwise overhead measurement instead really shader performance?
-10)  Learn GPU features and select calculation scenario.
-11)  See parallel NCRB DRAM bandwidth drawings. GPU access cached in the video memory?
-12)  Strategy target: measure video memory bandwidth and latency.
-     For CPU- and GPU-initiated memory access.
-13)  Strategy target: measure PCIe operations bandwidth and latency.
-     For CPU- and GPU-initiated memory access.
-
+1) How optimize shader for utilize full PCIe traffic (for example: 32GB/S PCIe 4.0 x16)?
+2) How optimize shader for utilize full discrette local Video RAM traffic?
+3) How measure latency and prevent GPU speculative access?
+4) Errors reading back buffer if simultaneously screen updates (by VS IDE for example).
+5) Learn GPU topology and optimize threads. See Dispatch(X,Y,Z) and [numthreads(1, 1, 1)] at shader.
+6) Parallel DRAM/PCIe traffic monitoring with NCRB and OpenHardwareMonitor.
 */
 
 #include <windows.h>
 #include <iostream>
 #include <vector>
+#include <algorithm>
+#include <numeric>
 #include <d3dcommon.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -59,29 +44,51 @@ struct BufType
     int pad;
 };
 
-// Select operation, FALSE = Memory Write, TRUE = Memory Copy.
-constexpr BOOL COPY_MODE = FALSE;
+enum OperationType
+{
+    OP_READ,
+    OP_WRITE,
+    OP_COPY,
+    OP_LATENCY
+};
 
+// #define LATENCY_MODE  // Latency test is under construction.
+#ifdef LATENCY_MODE
+// Select operation, Memory Read, Memory Write, Memory Copy, Memory Latency.
+constexpr UINT GPU_OPERATION_MODE = OP_LATENCY;
+constexpr UINT NUM_X = 512;                    // This 3 topology parameters MUST BE INTEGER POWER OF 2.
+constexpr UINT NUM_Y = 512;
+constexpr UINT NUM_Z = 16 * 32;
+constexpr UINT SHADER_X = 1;                   // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
+constexpr UINT SHADER_Y = 1;
+constexpr UINT SHADER_Z = 1;
+constexpr UINT REPEATS = 1;                    // Number of measurement repeats.
 // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
 // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
 // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
-constexpr BOOL SRC_PCIE_MODE = FALSE;      // This flag controls SOURCE data location for copy. FALSE=VRAM, TRUE=DRAM.
-constexpr BOOL DST_PCIE_MODE = FALSE;      // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL SRC_PCIE_MODE = FALSE;     // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL DST_PCIE_MODE = FALSE;     // This flag controls DESTINATION data location for write and copy. Service write for latency. FALSE=VRAM, TRUE=DRAM.
+#else
+// Select operation, Memory Read, Memory Write, Memory Copy, Memory Latency.
+constexpr UINT GPU_OPERATION_MODE = OP_READ;
+constexpr UINT NUM_X = 512;              // This 3 topology parameters MUST BE INTEGER POWER OF 2.
+constexpr UINT NUM_Y = 512;
+constexpr UINT NUM_Z = 16;
+constexpr UINT SHADER_X = 32;            // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
+constexpr UINT SHADER_Y = 8;
+constexpr UINT SHADER_Z = 2;
+constexpr UINT REPEATS = 5000;           // Number of measurement repeats.
+constexpr BOOL SRC_PCIE_MODE = FALSE;    // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL DST_PCIE_MODE = FALSE;    // This flag controls DESTINATION data location for write and copy. Service write for latency. FALSE=VRAM, TRUE=DRAM.
+#endif
 
 #define DEFAULT_ADAPTER -1
 constexpr int ADAPTER_INDEX = DEFAULT_ADAPTER;    // -1  or index overflow means default selection, otherwise index in the list, 0-based.
-                                                  // Note test non-active adapter can fail, use adapter selection for application at Windows (left mouse button).
-constexpr UINT NUM_X = 512;
-constexpr UINT NUM_Y = 512;
-constexpr UINT NUM_Z = 16;
+// Note test non-active adapter can fail, use adapter selection for application at Windows (left mouse button).
 
 constexpr UINT NUM_ELEMENTS = NUM_X * NUM_Y * NUM_Z;   // Original MSDN value is 1024. Changed for benchmark. Note about differrent limits for x64 and ia32 builds.
-constexpr UINT NUM_ARRAYS = 1;                         // One destination array for write, write traffic bandwidth measured at this example.
-constexpr UINT NUM_REPEATS = 5000;                     // Measurement repeats.
-
-constexpr UINT SHADER_X = 32;                          // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
-constexpr UINT SHADER_Y = 8;
-constexpr UINT SHADER_Z = 2;
+constexpr UINT NUM_ARRAYS = 1;                         // One array for read/write/copy. Reserved (for example) for addition with two source arrays.
+constexpr UINT LATENCY_CHAIN = 1; // 15;               // LATENCY_CHAIN must be below NUM_ELEMENTS, because buffer access.
 
 constexpr UINT DISPATCH_X = NUM_X / SHADER_X;
 constexpr UINT DISPATCH_Y = NUM_Y / SHADER_Y;
@@ -91,7 +98,8 @@ constexpr UINT STEP_Y = SHADER_X * DISPATCH_X;
 constexpr UINT STEP_Z = SHADER_X * DISPATCH_X * SHADER_Y * DISPATCH_Y;
 
 constexpr DWORD64 ALLOCATED_BYTES = (DWORD64)NUM_ELEMENTS * sizeof(BufType);
-constexpr double MEASURED_BYTES = (DWORD64)ALLOCATED_BYTES * NUM_ARRAYS * NUM_REPEATS;
+constexpr double MEASURED_BYTES = (DWORD64)ALLOCATED_BYTES * NUM_ARRAYS * REPEATS;   // Total number of bytes used for bandwidth measurement.
+constexpr double MEASURED_CYCLES = (DWORD64)NUM_ELEMENTS * LATENCY_CHAIN * REPEATS;    // Total number of read cycles used for bandwidth measurement.
 
 BufType* g_vBuf0 = nullptr;
 BufType* g_vBuf1 = nullptr;
@@ -101,10 +109,35 @@ ID3D11ComputeShader* g_pCS = nullptr;
 ID3D11Buffer* g_pBuf0 = nullptr;
 ID3D11Buffer* g_pBuf1 = nullptr;
 ID3D11Buffer* g_pBufResult = nullptr;
+ID3D11Buffer* readBackBuf = nullptr;
 ID3D11ShaderResourceView* g_pBuf0SRV = nullptr;
 ID3D11ShaderResourceView* g_pBuf1SRV = nullptr;
 ID3D11UnorderedAccessView* g_pBufResultUAV = nullptr;
-ID3D11Buffer* readBackBuf = nullptr;
+
+const char SHADER_SOURCE_READ_BANDWIDTH[] =
+"struct BufType\r\n"
+"{\r\n"
+"int x;\r\n"
+"int y;\r\n"
+"int z;\r\n"
+"int pad;\r\n"
+"};\r\n"
+"StructuredBuffer<BufType> Buffer0 : register(t0);\r\n"
+"StructuredBuffer<BufType> Buffer1 : register(t1);\r\n"
+"RWStructuredBuffer<BufType> BufferOut : register(u0);\r\n"
+"[numthreads(SHADER_X, SHADER_Y, SHADER_Z)]\r\n"
+"void CSMain(uint3 DTid : SV_DispatchThreadID)\r\n"
+"{\r\n"
+"int bx = Buffer1[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].x;\r\n"
+"int by = Buffer1[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].y;\r\n"
+"int bz = Buffer1[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].z;\r\n"
+"int bpad = Buffer1[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].pad;\r\n"
+"int bsum = bx + by + bz + bpad;\r\n"
+"if (bsum == 1)\r\n"                                                     // This condition always FALSE.
+"   {\r\n"
+"   BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].pad = 1;\r\n"  // This is unused branch for prevent skip read by optimization.
+"   }\r\n"
+"}\0";
 
 const char SHADER_SOURCE_WRITE_BANDWIDTH[] =
 "struct BufType\r\n"
@@ -144,8 +177,32 @@ const char SHADER_SOURCE_COPY_BANDWIDTH[] =
 "BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].pad = Buffer0[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].pad;\r\n"
 "}\0";
 
-const UINT SHADER_SOURCE_LENGTH_WRITE = sizeof(SHADER_SOURCE_WRITE_BANDWIDTH) - 1;
-const UINT SHADER_SOURCE_LENGTH_COPY = sizeof(SHADER_SOURCE_COPY_BANDWIDTH) - 1;
+const char SHADER_SOURCE_LATENCY_TIME[] =
+"struct BufType\r\n"
+"{\r\n"
+"int x;\r\n"
+"int y;\r\n"
+"int z;\r\n"
+"int pad;\r\n"
+"};\r\n"
+"StructuredBuffer<BufType> Buffer0 : register(t0);\r\n"
+"StructuredBuffer<BufType> Buffer1 : register(t1);\r\n"
+"RWStructuredBuffer<BufType> BufferOut : register(u0);\r\n"
+"[numthreads(SHADER_X, SHADER_Y, SHADER_Z)]\r\n"
+"void CSMain(uint3 DTid : SV_DispatchThreadID)\r\n"
+"{\r\n"
+"int index = Buffer0[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].x;\r\n"
+"for(int i=0; i<LATENCY_CHAIN; i++)\r\n"
+"   {\r\n"
+"   index = Buffer0[index].x;\r\n"
+"   BufferOut[i].x = index;"
+"   }\r\n"
+"}\0";
+
+constexpr UINT SHADER_SOURCE_LENGTH_READ = sizeof(SHADER_SOURCE_READ_BANDWIDTH) - 1;
+constexpr UINT SHADER_SOURCE_LENGTH_WRITE = sizeof(SHADER_SOURCE_WRITE_BANDWIDTH) - 1;
+constexpr UINT SHADER_SOURCE_LENGTH_COPY = sizeof(SHADER_SOURCE_COPY_BANDWIDTH) - 1;
+constexpr UINT SHADER_SOURCE_LENGTH_LATENCY = sizeof(SHADER_SOURCE_LATENCY_TIME) - 1;
 
 void cleaningUp()
 {
@@ -163,16 +220,39 @@ void cleaningUp()
     if (g_vBuf0) { _aligned_free(g_vBuf0); }
 }
 
+constexpr DWORD64 RANDOM_SEED = 3;
+constexpr DWORD64 RANDOM_MULTIPLIER = 0x00DEECE66D;
+constexpr DWORD64 RANDOM_ADDEND = 0x0B;
+
+struct AccessDescriptor
+{
+    DWORD64 random;
+    int index;
+};
+
+bool accessDescriptorComparator(AccessDescriptor d1, AccessDescriptor d2)
+{
+    return d1.random < d2.random;
+}
+
+
 int main()
 {
-    std::cout << "Compute shader with DRAM/VRAM bandwidth measurement. v0.2.0." << std::endl;
-    std::cout << "Based on MSDN information and sources." << std::endl << std::endl;
+    std::cout << "[ DRAM/VRAM/PCIe Read/Write/Copy/Latency by GPU. ]" << std::endl;
+#if _WIN64
+    std::cout << "[ Engineering sample v0.3.1 (x64).               ]" << std::endl;
+#elif _WIN32
+    std::cout << "[ Engineering sample v0.3.1 (ia32).              ]" << std::endl;
+#elif
+    std::cout << "[ Engineering sample v0.3.1 (unknown platform).  ]" << std::endl;
+#endif
+    std::cout << "[ Based on MSDN information and sources.         ]" << std::endl << std::endl;
 
-    // (1) Initializing timers.
+    // (1) Read performance counter timer frequency.
     // https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     // https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter
 
-    std::cout << "Initializing timers..." << std::endl;
+    std::cout << "Read performance counter timer frequency..." << std::endl;
     LARGE_INTEGER hz;
     if (!QueryPerformanceFrequency(&hz))
     {
@@ -182,11 +262,12 @@ int main()
     }
     double timerSeconds = 1.0 / hz.QuadPart;
     double gigabytes = MEASURED_BYTES / 1E9;
+    double cycles = MEASURED_CYCLES;
     double seconds = 0.0;
     double gbps = 0.0;
+    double nanoseconds = 0.0;
 
     // (2) Allocate memory.
-    // Note second source buffer reserved for algoritms updates, yet not used.
     // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/malloc?view=msvc-170
     // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/aligned-free?view=msvc-170
 
@@ -230,7 +311,7 @@ int main()
                 CHAR pName[128];
                 size_t count = 0;
                 wcstombs_s(&count, pName, pWname, 128);
-                std::cout << "[" << index << "]" << "[" << pName << "]" << std::endl;
+                std::cout << "[ " << index << " ]" << "[ " << pName << " ]" << std::endl;
             }
             index++;
         }
@@ -281,21 +362,23 @@ int main()
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
 
     std::cout << "Compiling shader..." << std::endl;
-    static char s1[10], s2[10], s3[10], s4[10], s5[10];
+    static char s1[10], s2[10], s3[10], s4[10], s5[10], s6[10];
     const D3D_SHADER_MACRO defines[] =
     {
-        "SHADER_X" , s1 ,
-        "SHADER_Y" , s2 ,
-        "SHADER_Z" , s3 ,
-        "STEP_Y"   , s4 ,
-        "STEP_Z"   , s5 ,
-        nullptr, nullptr
+        "SHADER_X"      , s1 ,
+        "SHADER_Y"      , s2 ,
+        "SHADER_Z"      , s3 ,
+        "STEP_Y"        , s4 ,
+        "STEP_Z"        , s5 ,
+        "LATENCY_CHAIN" , s6 ,
+        nullptr         , nullptr
     };
     snprintf(s1, 10, "%d", SHADER_X);
     snprintf(s2, 10, "%d", SHADER_Y);
     snprintf(s3, 10, "%d", SHADER_Z);
     snprintf(s4, 10, "%d", STEP_Y);
     snprintf(s5, 10, "%d", STEP_Z);
+    snprintf(s6, 10, "%d", LATENCY_CHAIN);
 
     LPCSTR pFunctionName = "CSMain";
     LPCSTR pProfile = (g_pDevice->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
@@ -304,17 +387,30 @@ int main()
 
     LPCVOID pSrcData = nullptr;
     SIZE_T srcDataSize = 0;
-    if (COPY_MODE)
+    switch (GPU_OPERATION_MODE)
     {
+    case OP_COPY:
         pSrcData = SHADER_SOURCE_COPY_BANDWIDTH;
         srcDataSize = SHADER_SOURCE_LENGTH_COPY;
-    }
-    else
-    {
+        break;
+    case OP_WRITE:
         pSrcData = SHADER_SOURCE_WRITE_BANDWIDTH;
         srcDataSize = SHADER_SOURCE_LENGTH_WRITE;
+        break;
+    case OP_READ:
+        pSrcData = SHADER_SOURCE_READ_BANDWIDTH;
+        srcDataSize = SHADER_SOURCE_LENGTH_READ;
+        break;
+    case OP_LATENCY:
+        pSrcData = SHADER_SOURCE_LATENCY_TIME;
+        srcDataSize = SHADER_SOURCE_LENGTH_LATENCY;
+        break;
+    default:
+        std::cout << "Internal error: wrong operation selected" << std::endl;
+        cleaningUp();
+        return -1;
     }
-    
+
     hr = D3DCompile(
         pSrcData,                           // Pointer to shader source text string.
         srcDataSize,                        // Length of shader source text string, chars (chars=bytes for ASCII).
@@ -357,21 +453,48 @@ int main()
     SAFE_RELEASE(pBlob);
 
     // (7) Generate test pattern and creating source buffers.
-    // Note second source buffer reserved for algoritms updates, yet not used.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
 
     std::cout << "Creating source buffers and filling them with initial data..." << std::endl;
-    for (int i = 0; i < NUM_ELEMENTS; ++i)
+    if (GPU_OPERATION_MODE != OP_LATENCY)
     {
-        g_vBuf0[i].x = i;
-        g_vBuf0[i].y = i + 3;
-        g_vBuf0[i].z = 7 - i;
-        g_vBuf0[i].pad = 0x55555555;
-
-        g_vBuf1[i].x = 0;
-        g_vBuf1[i].y = 0;
-        g_vBuf1[i].z = 0;
-        g_vBuf1[i].pad = 0;
+        for (int i = 0; i < NUM_ELEMENTS; ++i)
+        {
+            g_vBuf0[i].x = i;
+            g_vBuf0[i].y = i + 3;
+            g_vBuf0[i].z = 7 - i;
+            g_vBuf0[i].pad = 0x55555555;
+            g_vBuf1[i].x = 0;
+            g_vBuf1[i].y = 0;
+            g_vBuf1[i].z = 0;
+            g_vBuf1[i].pad = 0;
+        }
+    }
+    else
+    {
+        std::vector<AccessDescriptor> list;
+        DWORD64 randomNumber;
+        DWORD64 seed = RANDOM_SEED;
+        for (int i = 0; i < NUM_ELEMENTS; i++)  // Required 2 passes for src and dst files groups.
+        {
+            seed *= RANDOM_MULTIPLIER;
+            seed += RANDOM_ADDEND;
+            randomNumber = seed;
+            AccessDescriptor adesc{ randomNumber, i };
+            list.push_back(adesc);
+        }
+        std::sort(list.begin(), list.end(), accessDescriptorComparator);
+        for (int i = 0; i < NUM_ELEMENTS; ++i)
+        {
+            g_vBuf0[i].x = list[i].index;
+            g_vBuf0[i].y = 0;
+            g_vBuf0[i].z = 0;
+            g_vBuf0[i].pad = 0;
+            g_vBuf1[i].x = 0;
+            g_vBuf1[i].y = 0;
+            g_vBuf1[i].z = 0;
+            g_vBuf1[i].pad = 0;
+        }
     }
 
     D3D11_BUFFER_DESC srcBufDesc = {};
@@ -386,7 +509,7 @@ int main()
     {
         srcBufDesc.CPUAccessFlags = 0;
     }
-    
+
     srcBufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     srcBufDesc.StructureByteStride = sizeof(BufType);
     D3D11_SUBRESOURCE_DATA initData;
@@ -440,7 +563,6 @@ int main()
     }
 
     // (9) Creating source buffers views.
-    // Note second source buffer reserved for algoritms updates, yet not used.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createunorderedaccessview
     // Shader resource view descriptor:
@@ -540,9 +662,9 @@ int main()
     g_pContext->CSSetShaderResources(0, 2, aRViews);
     g_pContext->CSSetUnorderedAccessViews(0, 1, &g_pBufResultUAV, nullptr);
 
-    for (int i = 0; i < NUM_REPEATS; i++)  // Repeats for timings measurement.
+    for (int i = 0; i < REPEATS; i++)                     // Repeats for timings measurement.
     {
-        g_pContext->Dispatch(DISPATCH_X, DISPATCH_Y, DISPATCH_Z);  // This call runs execution compute shader on GPU.
+        g_pContext->Dispatch(DISPATCH_X, DISPATCH_Y, DISPATCH_Z);    // This call runs execution compute shader on GPU.
     }
 
     g_pContext->CSSetShader(nullptr, nullptr, 0);
@@ -605,7 +727,10 @@ int main()
     bool verifyError = false;
     int i = 0, j = 0, k = 0;
 
-    if (COPY_MODE)
+    switch (GPU_OPERATION_MODE)
+    {
+
+    case OP_COPY:
     {
         for (i = 0; i < NUM_ELEMENTS; ++i)
         {
@@ -620,7 +745,9 @@ int main()
             }
         }
     }
-    else
+    break;
+
+    case OP_WRITE:
     {
         for (i = 0; i < NUM_Z; ++i)
         {
@@ -643,54 +770,86 @@ int main()
             if (verifyError) break;
         }
     }
+    break;
+
+    case OP_READ:
+    case OP_LATENCY:
+    default:
+    {
+        // Reserved, no data verifications for read and latency measurements.
+    }
+    break;
+
+    }
 
     g_pContext->Unmap(readBackBuf, 0);
 
     if (verifyError)
     {
-        if (COPY_MODE)
+        switch (GPU_OPERATION_MODE)
         {
+        case OP_COPY:
             std::cout << std::endl << "COPY FAILED. GPU and CPU data mismatch. INDEX=" << i << "." << std::endl;
-        }
-        else
-        {
+            break;
+        case OP_WRITE:
             std::cout << std::endl << "WRITE FAILED. GPU and CPU data mismatch. X=" << k << ", Y=" << j << ", Z=" << i << "." << std::endl;
+            break;
+        case OP_READ:
+        case OP_LATENCY:
+        default:
+            std::cout << "Internal error." << std::endl;
+            break;
         }
     }
     else
     {
-        std::cout << std::endl << "PASSED. GPU and CPU data match." << std::endl;
+        if ((GPU_OPERATION_MODE != OP_READ) && (GPU_OPERATION_MODE != OP_LATENCY))
+        {
+            std::cout << std::endl << "PASSED. GPU and CPU data match." << std::endl;
+        }
+        else
+        {
+            std::cout << std::endl << "No verifications defined for this operation." << std::endl;
+        }
     }
 
     // (13) Check and calculate timings results.
 
     seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
     gbps = gigabytes / seconds;
-    std::cout << "Timer unit (seconds) = " << timerSeconds << ", shader dispatch (seconds) = " << seconds << ", gigabytes = " << gigabytes << "." << std::endl;
-    
-    if (COPY_MODE)
+    nanoseconds = 1E9 * seconds / cycles;
+    if (GPU_OPERATION_MODE != OP_LATENCY)
     {
-
-
-        if ((!SRC_PCIE_MODE) && (!DST_PCIE_MODE))
-        {
-            std::cout << "GPU copy bandwidth (VRAM-VRAM) = " << gbps << " GBPS." << std::endl;
-        }
-        else if ((!SRC_PCIE_MODE) && (DST_PCIE_MODE))
-        {
-            std::cout << "GPU copy bandwidth (VRAM-DRAM) = " << gbps << " GBPS." << std::endl;
-        }
-        else if ((SRC_PCIE_MODE) && (!DST_PCIE_MODE))
-        {
-            std::cout << "GPU copy bandwidth (DRAM-VRAM) = " << gbps << " GBPS." << std::endl;
-        }
-        else
-        {
-            std::cout << "GPU copy bandwidth (DRAM-DRAM) = " << gbps << " GBPS." << std::endl;
-        }
+        std::cout << "Timer unit (seconds) = " << timerSeconds << ", shader dispatch (seconds) = " << seconds << ", gigabytes = " << gigabytes << "." << std::endl;
     }
     else
     {
+        std::cout << "Timer unit (seconds) = " << timerSeconds << ", shader dispatch (seconds) = " << seconds << ", read cycles = " << cycles << "." << std::endl;
+    }
+
+    switch (GPU_OPERATION_MODE)
+    {
+
+    case OP_COPY:
+        if ((!SRC_PCIE_MODE) && (!DST_PCIE_MODE))
+        {
+            std::cout << "GPU copy bandwidth (VRAM -> VRAM) = " << gbps << " GBPS." << std::endl;
+        }
+        else if ((!SRC_PCIE_MODE) && (DST_PCIE_MODE))
+        {
+            std::cout << "GPU copy bandwidth (VRAM -> DRAM) = " << gbps << " GBPS." << std::endl;
+        }
+        else if ((SRC_PCIE_MODE) && (!DST_PCIE_MODE))
+        {
+            std::cout << "GPU copy bandwidth (DRAM -> VRAM) = " << gbps << " GBPS." << std::endl;
+        }
+        else
+        {
+            std::cout << "GPU copy bandwidth (DRAM -> DRAM) = " << gbps << " GBPS." << std::endl;
+        }
+        break;
+
+    case OP_WRITE:
         if (!DST_PCIE_MODE)
         {
             std::cout << "GPU write bandwidth (GPU -> Video RAM) = " << gbps << " GBPS." << std::endl;
@@ -699,6 +858,34 @@ int main()
         {
             std::cout << "GPU write bandwidth (GPU -> System DRAM) = " << gbps << " GBPS." << std::endl;
         }
+        break;
+
+    case OP_READ:
+        if (!SRC_PCIE_MODE)
+        {
+            std::cout << "GPU read bandwidth (Video RAM -> GPU) = " << gbps << " GBPS." << std::endl;
+        }
+        else
+        {
+            std::cout << "GPU read bandwidth (System DRAM -> GPU) = " << gbps << " GBPS." << std::endl;
+        }
+        break;
+
+    case OP_LATENCY:
+        if (!SRC_PCIE_MODE)
+        {
+            std::cout << "GPU access latency (GPU to Video RAM) = " << nanoseconds << " ns." << std::endl;
+        }
+        else
+        {
+            std::cout << "GPU access latency (GPU to System DRAM) = " << nanoseconds << " ns." << std::endl;
+        }
+        break;
+
+    default:
+        std::cout << "Internal error: wrong operation selected" << std::endl;
+        break;
+
     }
 
     // (14) Cleaning up.

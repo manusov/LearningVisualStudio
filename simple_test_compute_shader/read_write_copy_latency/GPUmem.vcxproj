@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{9ad7aabf-26ed-4280-8715-3006b601dec7}</ProjectGuid>
-    <RootNamespace>copybenchmark</RootNamespace>
+    <ProjectGuid>{a0f201cb-8c3c-4e81-8ce3-a94297b17230}</ProjectGuid>
+    <RootNamespace>GPUmem</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -131,7 +131,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CopyBenchmark.cpp" />
+    <ClCompile Include="GPUmem.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
