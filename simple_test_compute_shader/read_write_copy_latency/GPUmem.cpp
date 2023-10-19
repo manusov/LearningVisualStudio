@@ -62,12 +62,12 @@ constexpr UINT NUM_Z = 16 * 32;
 constexpr UINT SHADER_X = 1;                   // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
 constexpr UINT SHADER_Y = 1;
 constexpr UINT SHADER_Z = 1;
-constexpr UINT REPEATS = 1;                    // Number of measurement repeats.
+constexpr UINT REPEATS = 5;                   // Number of measurement repeats.
 // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
 // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
 // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
-constexpr BOOL SRC_PCIE_MODE = FALSE;     // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
-constexpr BOOL DST_PCIE_MODE = FALSE;     // This flag controls DESTINATION data location for write and copy. Service write for latency. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL SRC_PCIE_MODE = TRUE;      // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL DST_PCIE_MODE = TRUE;      // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
 #else
 // Select operation, Memory Read, Memory Write, Memory Copy, Memory Latency.
 constexpr UINT GPU_OPERATION_MODE = OP_READ;
@@ -88,18 +88,15 @@ constexpr int ADAPTER_INDEX = DEFAULT_ADAPTER;    // -1  or index overflow means
 
 constexpr UINT NUM_ELEMENTS = NUM_X * NUM_Y * NUM_Z;   // Original MSDN value is 1024. Changed for benchmark. Note about differrent limits for x64 and ia32 builds.
 constexpr UINT NUM_ARRAYS = 1;                         // One array for read/write/copy. Reserved (for example) for addition with two source arrays.
-constexpr UINT LATENCY_CHAIN = 1; // 15;               // LATENCY_CHAIN must be below NUM_ELEMENTS, because buffer access.
-
 constexpr UINT DISPATCH_X = NUM_X / SHADER_X;
 constexpr UINT DISPATCH_Y = NUM_Y / SHADER_Y;
 constexpr UINT DISPATCH_Z = NUM_Z / SHADER_Z;
-
 constexpr UINT STEP_Y = SHADER_X * DISPATCH_X;
 constexpr UINT STEP_Z = SHADER_X * DISPATCH_X * SHADER_Y * DISPATCH_Y;
 
 constexpr DWORD64 ALLOCATED_BYTES = (DWORD64)NUM_ELEMENTS * sizeof(BufType);
 constexpr double MEASURED_BYTES = (DWORD64)ALLOCATED_BYTES * NUM_ARRAYS * REPEATS;   // Total number of bytes used for bandwidth measurement.
-constexpr double MEASURED_CYCLES = (DWORD64)NUM_ELEMENTS * LATENCY_CHAIN * REPEATS;    // Total number of read cycles used for bandwidth measurement.
+constexpr double MEASURED_CYCLES = (DWORD64)NUM_ELEMENTS * REPEATS;                  // Total number of read cycles used for bandwidth measurement.
 
 BufType* g_vBuf0 = nullptr;
 BufType* g_vBuf1 = nullptr;
@@ -192,10 +189,10 @@ const char SHADER_SOURCE_LATENCY_TIME[] =
 "void CSMain(uint3 DTid : SV_DispatchThreadID)\r\n"
 "{\r\n"
 "int index = Buffer0[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].x;\r\n"
-"for(int i=0; i<LATENCY_CHAIN; i++)\r\n"
+"int a = Buffer1[index].x; \r\n"
+"if(a == 1)\r\n"
 "   {\r\n"
-"   index = Buffer0[index].x;\r\n"
-"   BufferOut[i].x = index;"
+"   BufferOut[DTid.x + DTid.y * STEP_Y + DTid.z * STEP_Z].x = 1;\r\n"
 "   }\r\n"
 "}\0";
 
@@ -240,11 +237,11 @@ int main()
 {
     std::cout << "[ DRAM/VRAM/PCIe Read/Write/Copy/Latency by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.3.1 (x64).               ]" << std::endl;
+    std::cout << "[ Engineering sample v0.3.2 (x64).               ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.3.1 (ia32).              ]" << std::endl;
+    std::cout << "[ Engineering sample v0.3.2 (ia32).              ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.3.1 (unknown platform).  ]" << std::endl;
+    std::cout << "[ Engineering sample v0.3.2 (unknown platform).  ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources.         ]" << std::endl << std::endl;
 
@@ -362,7 +359,7 @@ int main()
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
 
     std::cout << "Compiling shader..." << std::endl;
-    static char s1[10], s2[10], s3[10], s4[10], s5[10], s6[10];
+    static char s1[10], s2[10], s3[10], s4[10], s5[10];
     const D3D_SHADER_MACRO defines[] =
     {
         "SHADER_X"      , s1 ,
@@ -370,7 +367,6 @@ int main()
         "SHADER_Z"      , s3 ,
         "STEP_Y"        , s4 ,
         "STEP_Z"        , s5 ,
-        "LATENCY_CHAIN" , s6 ,
         nullptr         , nullptr
     };
     snprintf(s1, 10, "%d", SHADER_X);
@@ -378,7 +374,6 @@ int main()
     snprintf(s3, 10, "%d", SHADER_Z);
     snprintf(s4, 10, "%d", STEP_Y);
     snprintf(s5, 10, "%d", STEP_Z);
-    snprintf(s6, 10, "%d", LATENCY_CHAIN);
 
     LPCSTR pFunctionName = "CSMain";
     LPCSTR pProfile = (g_pDevice->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
