@@ -1,4 +1,5 @@
 /*
+
 Example how use compute shader for low-level GPU benchmarking.
 DRAM/VRAM/PCIe Read/Write/Copy/Latency measurement.
 https://github.com/manusov/LearningVisualStudio/tree/master/simple_test_compute_shader
@@ -14,13 +15,22 @@ https://www.overclockers.ua/video/gpu-evolution/
 Special thanks to:
 https://ravesli.com/uroki-po-opengl/
 https://ravesli.com/uroki-cpp/
+
 TODO.
 1) How optimize shader for utilize full PCIe traffic (for example: 32GB/S PCIe 4.0 x16)?
 2) How optimize shader for utilize full discrette local Video RAM traffic?
 3) How measure latency and prevent GPU speculative access?
-4) Errors reading back buffer if simultaneously screen updates (by VS IDE for example).
+4) Errors reading back buffer if simultaneously screen updates (by VS IDE for example). Depend on NUM_ELEMENTS.
 5) Learn GPU topology and optimize threads. See Dispatch(X,Y,Z) and [numthreads(1, 1, 1)] at shader.
 6) Parallel DRAM/PCIe traffic monitoring with NCRB and OpenHardwareMonitor.
+
+UPDATE.
+This sample measures virtual effective latency, reduced by GPU parallelism.
+Alternative algorithm required for measuring physical latency for GPU-VRAM and GPU-PCIe-DRAM operations.
+About hide memory delay cause wrong latency measurement results.
+https://coremission.net/gamedev/vychislitelnye-sheidery-1/
+https://coremission.net/gamedev/vychislitelnye-sheidery-2/
+
 */
 
 #include <windows.h>
@@ -52,26 +62,24 @@ enum OperationType
     OP_LATENCY
 };
 
-// #define LATENCY_MODE  // Latency test is under construction.
+// #define LATENCY_MODE
 #ifdef LATENCY_MODE
-// Select operation, Memory Read, Memory Write, Memory Copy, Memory Latency.
-constexpr UINT GPU_OPERATION_MODE = OP_LATENCY;
-constexpr UINT NUM_X = 512;                    // This 3 topology parameters MUST BE INTEGER POWER OF 2.
+constexpr UINT GPU_OPERATION_MODE = OP_LATENCY;   // Select operation, Memory Read, Memory Write, Memory Copy, Memory Latency.
+constexpr UINT NUM_X = 512;                       // This 3 topology parameters MUST BE INTEGER POWER OF 2.
 constexpr UINT NUM_Y = 512;
 constexpr UINT NUM_Z = 16 * 32;
-constexpr UINT SHADER_X = 1;                   // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
+constexpr UINT SHADER_X = 1;              // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
 constexpr UINT SHADER_Y = 1;
 constexpr UINT SHADER_Z = 1;
-constexpr UINT REPEATS = 5;                   // Number of measurement repeats.
+constexpr UINT REPEATS = 5;               // Number of measurement repeats.
 // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
 // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
 // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
 constexpr BOOL SRC_PCIE_MODE = TRUE;      // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
 constexpr BOOL DST_PCIE_MODE = TRUE;      // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
 #else
-// Select operation, Memory Read, Memory Write, Memory Copy, Memory Latency.
-constexpr UINT GPU_OPERATION_MODE = OP_READ;
-constexpr UINT NUM_X = 512;              // This 3 topology parameters MUST BE INTEGER POWER OF 2.
+constexpr UINT GPU_OPERATION_MODE = OP_READ;   // Select operation, Memory Read, Memory Write, Memory Copy, Memory Latency.
+constexpr UINT NUM_X = 512;                    // This 3 topology parameters MUST BE INTEGER POWER OF 2.
 constexpr UINT NUM_Y = 512;
 constexpr UINT NUM_Z = 16;
 constexpr UINT SHADER_X = 32;            // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
@@ -237,11 +245,11 @@ int main()
 {
     std::cout << "[ DRAM/VRAM/PCIe Read/Write/Copy/Latency by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.3.2 (x64).               ]" << std::endl;
+    std::cout << "[ Engineering sample v0.4.0 (x64).               ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.3.2 (ia32).              ]" << std::endl;
+    std::cout << "[ Engineering sample v0.4.0 (ia32).              ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.3.2 (unknown platform).  ]" << std::endl;
+    std::cout << "[ Engineering sample v0.4.0 (unknown platform).  ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources.         ]" << std::endl << std::endl;
 
@@ -804,11 +812,11 @@ int main()
         }
         else
         {
-            std::cout << std::endl << "No verifications defined for this operation." << std::endl;
+            std::cout << std::endl << "DONE. No read-back verifications defined for this operation." << std::endl;
         }
     }
 
-    // (13) Check and calculate timings results.
+    // (14) Check and calculate timings results.
 
     seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
     gbps = gigabytes / seconds;
@@ -869,11 +877,11 @@ int main()
     case OP_LATENCY:
         if (!SRC_PCIE_MODE)
         {
-            std::cout << "GPU access latency (GPU to Video RAM) = " << nanoseconds << " ns." << std::endl;
+            std::cout << "GPU effective virtual latency (GPU to Video RAM) = " << nanoseconds << " ns." << std::endl;
         }
         else
         {
-            std::cout << "GPU access latency (GPU to System DRAM) = " << nanoseconds << " ns." << std::endl;
+            std::cout << "GPU effective virtual latency (GPU to System DRAM) = " << nanoseconds << " ns." << std::endl;
         }
         break;
 
@@ -883,7 +891,7 @@ int main()
 
     }
 
-    // (14) Cleaning up.
+    // (15) Cleaning up.
 
     std::cout << "Cleaning up..." << std::endl;
     cleaningUp();
