@@ -29,6 +29,8 @@ About hide memory delay cause wrong latency measurement results.
 https://coremission.net/gamedev/vychislitelnye-sheidery-1/
 https://coremission.net/gamedev/vychislitelnye-sheidery-2/
 
+This engineering sample yet verified at NVIDIA GeForce RTX 3060 Ti only.
+
 */
 
 #include <windows.h>
@@ -112,7 +114,7 @@ const char SHADER_SOURCE_LATENCY[] =
 
 constexpr UINT SHADER_SOURCE_LENGTH_LATENCY = sizeof(SHADER_SOURCE_LATENCY) - 1;
 
-void cleaningUp()
+void cleaningUpAndWaitKey()
 {
     SAFE_RELEASE(readBackBuf);
     SAFE_RELEASE(g_pBuf0SRV);
@@ -126,18 +128,20 @@ void cleaningUp()
     SAFE_RELEASE(g_pDevice);
     if (g_vBuf1) { _aligned_free(g_vBuf1); }
     if (g_vBuf0) { _aligned_free(g_vBuf0); }
+    std::cout << std::endl;
+    system("pause");
 }
 
 
 int main()
 {
-    std::cout << "[ Measure DRAM/VRAM/PCIe Latency by GPU. ]" << std::endl;
+    std::cout << "[ Measure DRAM/VRAM/PCIe latency by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.5.0 (x64).       ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.1 (x64).       ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.5.0 (ia32).      ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.1 (ia32).      ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.5.0 (unknown platform). ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.1 (unknown platform). ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources. ]" << std::endl << std::endl;
 
@@ -145,12 +149,12 @@ int main()
     // https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     // https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter
 
-    std::cout << "Read performance counter timer frequency..." << std::endl;
+    std::cout << "Reading performance counter timer frequency..." << std::endl;
     LARGE_INTEGER hz;
     if (!QueryPerformanceFrequency(&hz))
     {
         std::cout << "Performance counter failed." << std::endl;
-        cleaningUp();
+        cleaningUpAndWaitKey();
         return 1;
     }
     double timerSeconds = 1.0 / hz.QuadPart;
@@ -162,7 +166,7 @@ int main()
     // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/malloc?view=msvc-170
     // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/aligned-free?view=msvc-170
 
-    std::cout << "Allocate memory..." << std::endl;
+    std::cout << "Allocating memory..." << std::endl;
     g_vBuf0 = reinterpret_cast<BufType*>(_aligned_malloc(ALLOCATED_BYTES, 16));
     if (g_vBuf0)
     {
@@ -171,7 +175,7 @@ int main()
     if ((!g_vBuf0) || (!g_vBuf1))
     {
         std::cout << "Memory allocation error." << std::endl;
-        cleaningUp();
+        cleaningUpAndWaitKey();
         return 2;
     }
 
@@ -211,15 +215,15 @@ int main()
     else
     {
         std::cout << "Error creating DXGI factory, HRESULT=" << std::hex << hr << "h." << std::endl;
-        cleaningUp();
+        cleaningUpAndWaitKey();
         return 3;
     }
 
-    // (4) Create device.
+    // (4) Creating device.
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3d11/nf-d3d11-d3d11createdevice
     // https://learn.microsoft.com/en-us/windows/win32/api/d3dcommon/ne-d3dcommon-d3d_feature_level
 
-    std::cout << "Create device..." << std::endl;
+    std::cout << "Creating device..." << std::endl;
     static const D3D_FEATURE_LEVEL featureLevelIn[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0 };
     D3D_FEATURE_LEVEL featureLevelOut;
 
@@ -244,7 +248,7 @@ int main()
     if (FAILED(hr))
     {
         std::cout << "Error creating device, HRESULT=" << std::hex << hr << "h." << std::endl;
-        cleaningUp();
+        cleaningUpAndWaitKey();
         return 4;
     }
 
@@ -298,7 +302,7 @@ int main()
             std::cout << ((char*)pErrorBlob->GetBufferPointer()) << std::endl;
         SAFE_RELEASE(pErrorBlob);
         SAFE_RELEASE(pBlob);
-        cleaningUp();
+        cleaningUpAndWaitKey();
         return 5;
     }
 
@@ -313,17 +317,15 @@ int main()
             std::cout << ((char*)pErrorBlob->GetBufferPointer()) << std::endl;
         SAFE_RELEASE(pErrorBlob);
         SAFE_RELEASE(pBlob);
-        cleaningUp();
+        cleaningUpAndWaitKey();
         return 6;
     }
     SAFE_RELEASE(pErrorBlob);
     SAFE_RELEASE(pBlob);
 
-    // (7) Generate test pattern and creating source buffers.
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
+    // (7) Generating test patterns.
 
-    std::cout << "Creating source buffers and filling them with initial data..." << std::endl;
-
+    std::cout << "Generating initial data: test patterns..." << std::endl;
     for (int i = 0; i < NUM_ELEMENTS; i++)
     {
         g_vBuf1[i].link = i;
@@ -364,20 +366,24 @@ int main()
     while (true)
     {
         checkIndex = g_vBuf0[checkIndex].link;
+        checkLength++;
         if (checkIndex == CHAIN_END_MARKER)
         {
             break;
         }
-        checkLength++;
     }
 
-    if (checkLength != (LATENCY_CHAIN - 1))
+    if (checkLength != LATENCY_CHAIN)
     {
         std::cout << "Internal error: randomization algorithm failed." << std::endl;
-        cleaningUp();
+        cleaningUpAndWaitKey();
         return 7;
     }
 
+    // (8) Creating source buffers with generated test patterns.
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
+
+    std::cout << "Creating source buffers and filling them with initial data..." << std::endl;
     D3D11_BUFFER_DESC srcBufDesc = {};
     srcBufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
     srcBufDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -403,11 +409,11 @@ int main()
     if (FAILED(hr))
     {
         std::cout << "Error creating source buffer objects, HRESULT=" << std::hex << hr << "h." << std::endl;
-        cleaningUp();
-        return 7;
+        cleaningUpAndWaitKey();
+        return 8;
     }
 
-    // (8) Creating destination buffer.
+    // (9) Creating destination buffer.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // Buffer descriptor layout, for buffer creating options control:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_buffer_desc
@@ -439,11 +445,11 @@ int main()
     if (FAILED(hr))
     {
         std::cout << "Error creating destination buffer objects, HRESULT=" << std::hex << hr << "h." << std::endl;
-        cleaningUp();
-        return 8;
+        cleaningUpAndWaitKey();
+        return 9;
     }
 
-    // (9) Creating source buffers views.
+    // (10) Creating source buffers views.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createunorderedaccessview
     // Shader resource view descriptor:
@@ -481,11 +487,11 @@ int main()
     if (FAILED(hr) || srcInconsistent)
     {
         std::cout << "Error creating buffer views, HRESULT=" << std::hex << hr << "h." << std::endl;
-        cleaningUp();
-        return 9;
+        cleaningUpAndWaitKey();
+        return 10;
     }
 
-    // (10) Creating destination buffer view.
+    // (11) Creating destination buffer view.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createunorderedaccessview
     // Shader resource view descriptor:
@@ -510,11 +516,11 @@ int main()
     if (FAILED(hr) || dstInconsistent)
     {
         std::cout << "Error creating buffer views, HRESULT=" << std::hex << hr << "h." << std::endl;
-        cleaningUp();
-        return 10;
+        cleaningUpAndWaitKey();
+        return 11;
     }
 
-    // (11) Running compute shader.
+    // (12) Running compute shader.
     // Time measurement interval starts at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-dispatch
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-cssetshader
@@ -558,11 +564,11 @@ int main()
     if ((!b1) || (!b2))
     {
         std::cout << "Error running shader, timer failed." << std::endl;
-        cleaningUp();
-        return 11;
+        cleaningUpAndWaitKey();
+        return 12;
     }
 
-    // (12) Read back the data from GPU, verify its correctness against data computed by CPU.
+    // (13) Read back the data from GPU, verify its correctness against data computed by CPU.
     // Time measurement interval ends at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
@@ -597,18 +603,20 @@ int main()
     if ((!p) || (!b3))
     {
         std::cout << "Error reading back buffer, HRESULT=" << std::hex << hr << "h." << std::endl;
-        cleaningUp();
-        return 12;
+        cleaningUpAndWaitKey();
+        return 13;
     }
 
-    // (13) Check and calculate timings results.
+    // (14) Check and calculate timings results.
 
     int verifyData = p->link;
+    g_pContext->Unmap(readBackBuf, 0);
+
     if (verifyData != CHAIN_END_MARKER)
     {
         std::cout << "Error in the shader results." << std::endl;
-        cleaningUp();
-        return 13;
+        cleaningUpAndWaitKey();
+        return 14;
     }
 
     seconds = (t1.QuadPart - t2.QuadPart) * timerSeconds;
@@ -623,9 +631,9 @@ int main()
         std::cout << "GPU access latency (GPU to System DRAM) = " << nanoseconds << " ns." << std::endl;
     }
 
-    // (14) Cleaning up.
+    // (15) Cleaning up.
 
     std::cout << "Cleaning up..." << std::endl;
-    cleaningUp();
+    cleaningUpAndWaitKey();
     return 0;
 }
