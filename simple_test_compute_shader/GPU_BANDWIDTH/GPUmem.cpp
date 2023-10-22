@@ -31,7 +31,12 @@ About hide memory delay cause wrong latency measurement results.
 https://coremission.net/gamedev/vychislitelnye-sheidery-1/
 https://coremission.net/gamedev/vychislitelnye-sheidery-2/
 
+IMPORTANT.
 This engineering sample yet verified at NVIDIA GeForce RTX 3060 Ti only.
+Latency tests at ASUS N750JK notebook (mobile NVIDIA GTX850M and INTEL HD4600) can fail depend on NUM_ELEMENTS.
+Plus, GPU cache effects can occur, especially if reduce NUM_ELEMENTS.
+Can use long latency chain (linked list) with small read-back buffer? Reduce destination buffer size?
+Long latency chains can fail because driver can limit shader execution time?
 
 */
 
@@ -104,9 +109,10 @@ constexpr UINT DISPATCH_Z = NUM_Z / SHADER_Z;
 constexpr UINT STEP_Y = SHADER_X * DISPATCH_X;
 constexpr UINT STEP_Z = SHADER_X * DISPATCH_X * SHADER_Y * DISPATCH_Y;
 
-constexpr DWORD64 ALLOCATED_BYTES = (DWORD64)NUM_ELEMENTS * sizeof(BufType);
-constexpr double MEASURED_BYTES = (DWORD64)ALLOCATED_BYTES * NUM_ARRAYS * REPEATS;   // Total number of bytes used for bandwidth measurement.
-constexpr double MEASURED_CYCLES = (DWORD64)NUM_ELEMENTS * REPEATS;                  // Total number of read cycles used for bandwidth measurement.
+constexpr DWORD64 SRC_ALLOCATED_BYTES = (DWORD64)NUM_ELEMENTS * sizeof(BufType);
+constexpr DWORD64 DST_ALLOCATED_BYTES = SRC_ALLOCATED_BYTES;
+constexpr double MEASURED_BYTES = (DWORD64)SRC_ALLOCATED_BYTES * NUM_ARRAYS * REPEATS;   // Total number of bytes used for bandwidth measurement.
+constexpr double MEASURED_CYCLES = (DWORD64)NUM_ELEMENTS * REPEATS;                      // Total number of read cycles used for bandwidth measurement.
 
 BufType* g_vBuf0 = nullptr;
 BufType* g_vBuf1 = nullptr;
@@ -249,11 +255,11 @@ int main()
 {
     std::cout << "[ DRAM/VRAM/PCIe Read/Write/Copy bandwidth by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.4.1 (x64).                 ]" << std::endl;
+    std::cout << "[ Engineering sample v0.4.2 (x64).                 ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.4.1 (ia32).                ]" << std::endl;
+    std::cout << "[ Engineering sample v0.4.2 (ia32).                ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.4.1 (unknown platform).    ]" << std::endl;
+    std::cout << "[ Engineering sample v0.4.2 (unknown platform).    ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources.           ]" << std::endl << std::endl;
 
@@ -281,10 +287,10 @@ int main()
     // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/aligned-free?view=msvc-170
 
     std::cout << "Allocating memory..." << std::endl;
-    g_vBuf0 = reinterpret_cast<BufType*>(_aligned_malloc(ALLOCATED_BYTES, 16));
+    g_vBuf0 = reinterpret_cast<BufType*>(_aligned_malloc(SRC_ALLOCATED_BYTES, 16));
     if (g_vBuf0)
     {
-        g_vBuf1 = reinterpret_cast<BufType*>(_aligned_malloc(ALLOCATED_BYTES, 16));
+        g_vBuf1 = reinterpret_cast<BufType*>(_aligned_malloc(SRC_ALLOCATED_BYTES, 16));
     }
     if ((!g_vBuf0) || (!g_vBuf1))
     {
@@ -508,7 +514,7 @@ int main()
 
     std::cout << "Creating source buffers and filling them with initial data..." << std::endl;
     D3D11_BUFFER_DESC srcBufDesc = {};
-    srcBufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
+    srcBufDesc.ByteWidth = SRC_ALLOCATED_BYTES;
     srcBufDesc.Usage = D3D11_USAGE_DEFAULT;
     srcBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
     if (SRC_PCIE_MODE)
@@ -551,7 +557,7 @@ int main()
 
     std::cout << "Creating destination buffer..." << std::endl;
     D3D11_BUFFER_DESC dstBufDesc = {};
-    dstBufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
+    dstBufDesc.ByteWidth = DST_ALLOCATED_BYTES;
     dstBufDesc.Usage = D3D11_USAGE_DEFAULT;
     dstBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
     if (DST_PCIE_MODE)

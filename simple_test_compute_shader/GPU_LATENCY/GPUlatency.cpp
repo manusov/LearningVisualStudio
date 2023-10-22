@@ -29,7 +29,12 @@ About hide memory delay cause wrong latency measurement results.
 https://coremission.net/gamedev/vychislitelnye-sheidery-1/
 https://coremission.net/gamedev/vychislitelnye-sheidery-2/
 
+IMPORTANT.
 This engineering sample yet verified at NVIDIA GeForce RTX 3060 Ti only.
+Latency tests at ASUS N750JK notebook (mobile NVIDIA GTX850M and INTEL HD4600) can fail depend on NUM_ELEMENTS.
+Plus, GPU cache effects can occur, especially if reduce NUM_ELEMENTS.
+Can use long latency chain (linked list) with small read-back buffer? Reduce destination buffer size?
+Long latency chains can fail because driver can limit shader execution time?
 
 */
 
@@ -54,31 +59,33 @@ struct BufType
 constexpr UINT NUM_X = 512;         // This 3 topology parameters MUST BE INTEGER POWER OF 2.
 constexpr UINT NUM_Y = 512;
 constexpr UINT NUM_Z = 16;
+constexpr UINT APP_REPEATS = 30;                       // Number of measurement repeats in the application.
+constexpr UINT SHADER_REPEATS = 1;                     // Number of measurement repeats in the shader. Must be DST_ALLOCATED_BYTES >= SHADER_REPEATS * 4.
+constexpr UINT NUM_ELEMENTS = NUM_X * NUM_Y * NUM_Z;   // Original MSDN value is 1024. Changed for benchmark. Note about differrent limits for x64 and ia32 builds.
+constexpr UINT LATENCY_CHAIN = NUM_ELEMENTS;
+
 constexpr UINT SHADER_X = 1;        // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
 constexpr UINT SHADER_Y = 1;        // But here set to { 1,1,1 } for prevent parallelism because latency test.
 constexpr UINT SHADER_Z = 1;
-constexpr UINT REPEATS = 30;                           // Number of measurement repeats.
-constexpr UINT NUM_ELEMENTS = NUM_X * NUM_Y * NUM_Z;   // Original MSDN value is 1024. Changed for benchmark. Note about differrent limits for x64 and ia32 builds.
-
-constexpr UINT DISPATCH_X = 1;                         // Set { 1,1,1 } for prevent parallelism because latency test.
+constexpr UINT DISPATCH_X = 1;      // Set { 1,1,1 } for prevent parallelism because latency test.
 constexpr UINT DISPATCH_Y = 1;
 constexpr UINT DISPATCH_Z = 1;
 constexpr UINT STEP_Y = SHADER_X * DISPATCH_X;
 constexpr UINT STEP_Z = SHADER_X * DISPATCH_X * SHADER_Y * DISPATCH_Y;
-constexpr UINT LATENCY_CHAIN = NUM_ELEMENTS;
 
 // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
 // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
 // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
-constexpr BOOL SRC_PCIE_MODE = TRUE;     // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
-constexpr BOOL DST_PCIE_MODE = TRUE;     // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL SRC_PCIE_MODE = TRUE;    // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL DST_PCIE_MODE = TRUE;    // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
 
 #define DEFAULT_ADAPTER -1
 constexpr int ADAPTER_INDEX = DEFAULT_ADAPTER;    // -1  or index overflow means default selection, otherwise index in the list, 0-based.
 // Note test non-active adapter can fail, use adapter selection for application at Windows (left mouse button).
 
-constexpr DWORD64 ALLOCATED_BYTES = (DWORD64)NUM_ELEMENTS * sizeof(BufType);
-constexpr double MEASURED_CYCLES = (DWORD64)LATENCY_CHAIN * REPEATS;                 // Total number of read cycles used for latency measurement.
+constexpr DWORD64 SRC_ALLOCATED_BYTES = (DWORD64)NUM_ELEMENTS * sizeof(BufType);
+constexpr DWORD64 DST_ALLOCATED_BYTES = 4096;                                                // Must be DST_ALLOCATED_BYTES >= SHADER_REPEATS * 4.
+constexpr double MEASURED_CYCLES = (DWORD64)LATENCY_CHAIN * APP_REPEATS * SHADER_REPEATS;    // Total number of read cycles used for latency measurement.
 
 BufType* g_vBuf0 = nullptr;
 BufType* g_vBuf1 = nullptr;
@@ -104,12 +111,15 @@ const char SHADER_SOURCE_LATENCY[] =
 "[numthreads(SHADER_X, SHADER_Y, SHADER_Z)]\r\n"
 "void CSMain(uint3 DTid : SV_DispatchThreadID)\r\n"
 "{\r\n"
-"int index = Buffer1[0].link;\r\n"
-"while(index > 0)\r\n"
+"for(int i=0; i<SHADER_REPEATS; i++)\r\n"
 "   {\r\n"
-"   index = Buffer0[index].link;\r\n"
+"   int index = Buffer1[0].link;\r\n"
+"   while(index >= 0)\r\n"
+"      {\r\n"
+"      index = Buffer0[index].link;\r\n"
+"      }\r\n"
+"   BufferOut[i].link = index + i;\r\n"
 "   }\r\n"
-"BufferOut[0].link = index;\r\n"
 "}\0";
 
 constexpr UINT SHADER_SOURCE_LENGTH_LATENCY = sizeof(SHADER_SOURCE_LATENCY) - 1;
@@ -137,11 +147,11 @@ int main()
 {
     std::cout << "[ Measure DRAM/VRAM/PCIe latency by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.5.1 (x64).       ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.2 (x64).       ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.5.1 (ia32).      ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.2 (ia32).      ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.5.1 (unknown platform). ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.2 (unknown platform). ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources. ]" << std::endl << std::endl;
 
@@ -167,10 +177,10 @@ int main()
     // https://learn.microsoft.com/ru-ru/cpp/c-runtime-library/reference/aligned-free?view=msvc-170
 
     std::cout << "Allocating memory..." << std::endl;
-    g_vBuf0 = reinterpret_cast<BufType*>(_aligned_malloc(ALLOCATED_BYTES, 16));
+    g_vBuf0 = reinterpret_cast<BufType*>(_aligned_malloc(SRC_ALLOCATED_BYTES, 16));
     if (g_vBuf0)
     {
-        g_vBuf1 = reinterpret_cast<BufType*>(_aligned_malloc(ALLOCATED_BYTES, 16));
+        g_vBuf1 = reinterpret_cast<BufType*>(_aligned_malloc(SRC_ALLOCATED_BYTES, 16));
     }
     if ((!g_vBuf0) || (!g_vBuf1))
     {
@@ -257,15 +267,16 @@ int main()
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
 
     std::cout << "Compiling shader..." << std::endl;
-    static char s1[10], s2[10], s3[10], s4[10], s5[10], s6[10];
+    static char s1[10], s2[10], s3[10], s4[10], s5[10], s6[10], s7[10];;
     const D3D_SHADER_MACRO defines[] =
     {
-        "SHADER_X"      , s1 ,
-        "SHADER_Y"      , s2 ,
-        "SHADER_Z"      , s3 ,
-        "STEP_Y"        , s4 ,
-        "STEP_Z"        , s5 ,
-        "LATENCY_CHAIN" , s6 ,
+        "SHADER_X"       , s1 ,
+        "SHADER_Y"       , s2 ,
+        "SHADER_Z"       , s3 ,
+        "STEP_Y"         , s4 ,
+        "STEP_Z"         , s5 ,
+        "LATENCY_CHAIN"  , s6 ,
+        "SHADER_REPEATS" , s7 ,
         nullptr         , nullptr
     };
     snprintf(s1, 10, "%d", SHADER_X);
@@ -274,6 +285,7 @@ int main()
     snprintf(s4, 10, "%d", STEP_Y);
     snprintf(s5, 10, "%d", STEP_Z);
     snprintf(s6, 10, "%d", LATENCY_CHAIN);
+    snprintf(s7, 10, "%d", SHADER_REPEATS);
 
     LPCSTR pFunctionName = "CSMain";
     LPCSTR pProfile = (g_pDevice->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
@@ -346,7 +358,7 @@ int main()
         g_vBuf1[i].link = g_vBuf1[seedIndex].link;
         g_vBuf1[seedIndex].link = temp;
     }
-    
+
     int entry = CHAIN_END_MARKER;
     for (int i = 0; i < NUM_ELEMENTS; i++)
     {
@@ -385,7 +397,7 @@ int main()
 
     std::cout << "Creating source buffers and filling them with initial data..." << std::endl;
     D3D11_BUFFER_DESC srcBufDesc = {};
-    srcBufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
+    srcBufDesc.ByteWidth = SRC_ALLOCATED_BYTES;
     srcBufDesc.Usage = D3D11_USAGE_DEFAULT;
     srcBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
     if (SRC_PCIE_MODE)
@@ -428,7 +440,7 @@ int main()
 
     std::cout << "Creating destination buffer..." << std::endl;
     D3D11_BUFFER_DESC dstBufDesc = {};
-    dstBufDesc.ByteWidth = sizeof(BufType) * NUM_ELEMENTS;
+    dstBufDesc.ByteWidth = DST_ALLOCATED_BYTES;
     dstBufDesc.Usage = D3D11_USAGE_DEFAULT;
     dstBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
     if (DST_PCIE_MODE)
@@ -548,7 +560,7 @@ int main()
     g_pContext->CSSetShaderResources(0, 2, aRViews);
     g_pContext->CSSetUnorderedAccessViews(0, 1, &g_pBufResultUAV, nullptr);
 
-    for (int i = 0; i < REPEATS; i++)                     // Repeats for timings measurement.
+    for (int i = 0; i < APP_REPEATS; i++)                     // Repeats for timings measurement.
     {
         g_pContext->Dispatch(DISPATCH_X, DISPATCH_Y, DISPATCH_Z);    // This call runs execution compute shader on GPU.
     }
@@ -609,10 +621,19 @@ int main()
 
     // (14) Check and calculate timings results.
 
-    int verifyData = p->link;
+    bool verifyError = false;
+    for (int i = 0; i < SHADER_REPEATS; i++)
+    {
+        if (p->link != (CHAIN_END_MARKER + i))
+        {
+            verifyError = true;
+        }
+        p++;
+    }
+    
     g_pContext->Unmap(readBackBuf, 0);
 
-    if (verifyData != CHAIN_END_MARKER)
+    if (verifyError)
     {
         std::cout << "Error in the shader results." << std::endl;
         cleaningUpAndWaitKey();
