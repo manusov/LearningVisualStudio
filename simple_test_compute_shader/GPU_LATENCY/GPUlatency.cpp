@@ -56,13 +56,13 @@ struct BufType
     int link;
 };
 
-constexpr UINT NUM_X = 512;         // This 3 topology parameters MUST BE INTEGER POWER OF 2.
+constexpr UINT NUM_X = 512;                            // This 3 topology parameters MUST BE INTEGER POWER OF 2.
 constexpr UINT NUM_Y = 512;
-constexpr UINT NUM_Z = 16;
+constexpr UINT NUM_Z = 16 * 2;                         // Twice buffer size at v0.5.3, old is 16.
 constexpr UINT APP_REPEATS = 30;                       // Number of measurement repeats in the application.
 constexpr UINT SHADER_REPEATS = 1;                     // Number of measurement repeats in the shader. Must be DST_ALLOCATED_BYTES >= SHADER_REPEATS * 4.
 constexpr UINT NUM_ELEMENTS = NUM_X * NUM_Y * NUM_Z;   // Original MSDN value is 1024. Changed for benchmark. Note about differrent limits for x64 and ia32 builds.
-constexpr UINT LATENCY_CHAIN = NUM_ELEMENTS;
+constexpr UINT LATENCY_CHAIN = NUM_ELEMENTS / 2;       // Independent settings for LATENCY_CHAIN and NUM_ELEMENTS at v0.5.3.
 
 constexpr UINT SHADER_X = 1;        // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
 constexpr UINT SHADER_Y = 1;        // But here set to { 1,1,1 } for prevent parallelism because latency test.
@@ -76,8 +76,8 @@ constexpr UINT STEP_Z = SHADER_X * DISPATCH_X * SHADER_Y * DISPATCH_Y;
 // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
 // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
 // FALSE = traffic GPU-VideoRAM (fast local path),  TRUE = traffic GPU-PCIe-SystemRAM (slow remote path, PCIe limited).
-constexpr BOOL SRC_PCIE_MODE = TRUE;    // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
-constexpr BOOL DST_PCIE_MODE = TRUE;    // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL SRC_PCIE_MODE = FALSE;    // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL DST_PCIE_MODE = FALSE;    // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
 
 #define DEFAULT_ADAPTER -1
 constexpr int ADAPTER_INDEX = DEFAULT_ADAPTER;    // -1  or index overflow means default selection, otherwise index in the list, 0-based.
@@ -147,11 +147,11 @@ int main()
 {
     std::cout << "[ Measure DRAM/VRAM/PCIe latency by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.5.2 (x64).       ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.3 (x64).       ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.5.2 (ia32).      ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.3 (ia32).      ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.5.2 (unknown platform). ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.3 (unknown platform). ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources. ]" << std::endl << std::endl;
 
@@ -262,12 +262,12 @@ int main()
         return 4;
     }
 
-    // (5) Compile shader from constant text string and dynamically created defines string.
+    // (5) Compiling shader from constant text string and dynamically created defines string.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
     // https://learn.microsoft.com/ru-ru/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompilefromfile
 
     std::cout << "Compiling shader..." << std::endl;
-    static char s1[10], s2[10], s3[10], s4[10], s5[10], s6[10], s7[10];;
+    static char s1[10], s2[10], s3[10], s4[10], s5[10], s6[10];
     const D3D_SHADER_MACRO defines[] =
     {
         "SHADER_X"       , s1 ,
@@ -275,8 +275,7 @@ int main()
         "SHADER_Z"       , s3 ,
         "STEP_Y"         , s4 ,
         "STEP_Z"         , s5 ,
-        "LATENCY_CHAIN"  , s6 ,
-        "SHADER_REPEATS" , s7 ,
+        "SHADER_REPEATS" , s6 ,
         nullptr         , nullptr
     };
     snprintf(s1, 10, "%d", SHADER_X);
@@ -284,8 +283,7 @@ int main()
     snprintf(s3, 10, "%d", SHADER_Z);
     snprintf(s4, 10, "%d", STEP_Y);
     snprintf(s5, 10, "%d", STEP_Z);
-    snprintf(s6, 10, "%d", LATENCY_CHAIN);
-    snprintf(s7, 10, "%d", SHADER_REPEATS);
+    snprintf(s6, 10, "%d", SHADER_REPEATS);
 
     LPCSTR pFunctionName = "CSMain";
     LPCSTR pProfile = (g_pDevice->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
@@ -318,9 +316,10 @@ int main()
         return 5;
     }
 
-    // (6) Create shader from compiled blob.
+    // (6) Creating shader from compiled blob.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createcomputeshader
 
+    std::cout << "Creating shader..." << std::endl;
     hr = g_pDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pCS);
     if (FAILED(hr))
     {
@@ -338,7 +337,7 @@ int main()
     // (7) Generating test patterns.
 
     std::cout << "Generating initial data: test patterns..." << std::endl;
-    for (int i = 0; i < NUM_ELEMENTS; i++)
+    for (int i = 0; i < LATENCY_CHAIN; i++)
     {
         g_vBuf1[i].link = i;
     }
@@ -349,8 +348,8 @@ int main()
     constexpr int CHAIN_END_MARKER = -5;
     UINT64 seed = RANDOM_SEED;
     UINT64 seedIndex = 0;
-    UINT64 mask = NUM_ELEMENTS - 1;
-    for (int i = 0; i < NUM_ELEMENTS; i++)
+    UINT64 mask = LATENCY_CHAIN - 1;           // LATENCY_CHAIN must be integer power of 2 for this method.
+    for (int i = 0; i < LATENCY_CHAIN; i++)
     {
         seed = seed * RANDOM_MULTIPLIER + RANDOM_ADDEND;
         seedIndex = seed & mask;
@@ -360,7 +359,7 @@ int main()
     }
 
     int entry = CHAIN_END_MARKER;
-    for (int i = 0; i < NUM_ELEMENTS; i++)
+    for (int i = 0; i < LATENCY_CHAIN; i++)
     {
         int temp = g_vBuf1[i].link;
         g_vBuf0[temp].link = entry;
@@ -368,7 +367,7 @@ int main()
     }
     g_vBuf1[0].link = entry;
 
-    for (int i = 1; i < NUM_ELEMENTS; i++)
+    for (int i = 1; i < LATENCY_CHAIN; i++)
     {
         g_vBuf1[i].link = 0;
     }
@@ -580,13 +579,13 @@ int main()
         return 12;
     }
 
-    // (13) Read back the data from GPU, verify its correctness against data computed by CPU.
+    // (13) Reading back the data from GPU, verifying its correctness against data computed by CPU.
     // Time measurement interval ends at this step.
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-map
 
-    std::cout << "Wait shader execution and read back the result from GPU..." << std::endl;
+    std::cout << "Waiting shader execution and reading back the result from GPU..." << std::endl;
     BufType* p = nullptr;
     D3D11_BUFFER_DESC rbufDesc = {};
     g_pBufResult->GetDesc(&rbufDesc);
