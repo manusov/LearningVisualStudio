@@ -109,7 +109,7 @@ const char SHADER_SOURCE_LATENCY[] =
 "StructuredBuffer<BufType> Buffer1 : register(t1);\r\n"
 "RWStructuredBuffer<BufType> BufferOut : register(u0);\r\n"
 "[numthreads(SHADER_X, SHADER_Y, SHADER_Z)]\r\n"
-"void CSMain(uint3 DTid : SV_DispatchThreadID)\r\n"
+"void CSMain()\r\n"
 "{\r\n"
 "for(int i=0; i<SHADER_REPEATS; i++)\r\n"
 "   {\r\n"
@@ -147,11 +147,11 @@ int main()
 {
     std::cout << "[ Measure DRAM/VRAM/PCIe latency by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.5.3 (x64).       ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.4 (x64).       ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.5.3 (ia32).      ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.4 (ia32).      ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.5.3 (unknown platform). ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.4 (unknown platform). ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources. ]" << std::endl << std::endl;
 
@@ -337,6 +337,12 @@ int main()
     // (7) Generating test patterns.
 
     std::cout << "Generating initial data: test patterns..." << std::endl;
+    for (int i = 0; i < NUM_ELEMENTS; i++)
+    {
+        g_vBuf0[i].link = 0;
+        g_vBuf1[i].link = 0;
+    }
+
     for (int i = 0; i < LATENCY_CHAIN; i++)
     {
         g_vBuf1[i].link = i;
@@ -347,15 +353,15 @@ int main()
     constexpr UINT64 RANDOM_ADDEND = 0xB;
     constexpr int CHAIN_END_MARKER = -5;
     UINT64 seed = RANDOM_SEED;
-    UINT64 seedIndex = 0;
-    UINT64 mask = LATENCY_CHAIN - 1;           // LATENCY_CHAIN must be integer power of 2 for this method.
+    int modValue = LATENCY_CHAIN;
+    int modIndex = 0;
     for (int i = 0; i < LATENCY_CHAIN; i++)
     {
         seed = seed * RANDOM_MULTIPLIER + RANDOM_ADDEND;
-        seedIndex = seed & mask;
+        modIndex = seed % modValue;
         int temp = g_vBuf1[i].link;
-        g_vBuf1[i].link = g_vBuf1[seedIndex].link;
-        g_vBuf1[seedIndex].link = temp;
+        g_vBuf1[i].link = g_vBuf1[modIndex].link;
+        g_vBuf1[modIndex].link = temp;
     }
 
     int entry = CHAIN_END_MARKER;
@@ -374,6 +380,7 @@ int main()
 
     int checkLength = 0;
     int checkIndex = g_vBuf1[0].link;
+    bool checkBound = false;
     while (true)
     {
         checkIndex = g_vBuf0[checkIndex].link;
@@ -382,9 +389,13 @@ int main()
         {
             break;
         }
+        if (checkIndex >= LATENCY_CHAIN)
+        {
+            checkBound = true;
+        }
     }
 
-    if (checkLength != LATENCY_CHAIN)
+    if ((checkLength != LATENCY_CHAIN) || checkBound)
     {
         std::cout << "Internal error: randomization algorithm failed." << std::endl;
         cleaningUpAndWaitKey();
