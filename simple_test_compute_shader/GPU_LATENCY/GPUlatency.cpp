@@ -35,6 +35,11 @@ Latency tests at ASUS N750JK notebook (mobile NVIDIA GTX850M and INTEL HD4600) c
 Plus, GPU cache effects can occur, especially if reduce NUM_ELEMENTS.
 Can use long latency chain (linked list) with small read-back buffer? Reduce destination buffer size?
 Long latency chains can fail because driver can limit shader execution time?
+Experimentally detected:
+timings is very dependent on random numbers.
+Latency test reports very different values (>10 times) if use hardware RNG.
+Increment mode (ADDR_INC) yet experimentally selected as optimal.
+Why too fast results if decrement mode (ADDR_DEC) selected?
 
 */
 
@@ -46,6 +51,8 @@ Long latency chains can fail because driver can limit shader execution time?
 #include <d3dcommon.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
+#include <intrin.h>
+#include <immintrin.h>
 
 #ifndef SAFE_RELEASE
 #define SAFE_RELEASE(p)      { if (p) { (p)->Release(); (p)=nullptr; } }
@@ -58,12 +65,11 @@ struct BufType
 
 constexpr UINT NUM_X = 512;                            // This 3 topology parameters MUST BE INTEGER POWER OF 2.
 constexpr UINT NUM_Y = 512;
-constexpr UINT NUM_Z = 16 * 2;                         // Twice buffer size at v0.5.3, old is 16.
+constexpr UINT NUM_Z = 32;
 constexpr UINT APP_REPEATS = 30;                       // Number of measurement repeats in the application.
 constexpr UINT SHADER_REPEATS = 1;                     // Number of measurement repeats in the shader. Must be DST_ALLOCATED_BYTES >= SHADER_REPEATS * 4.
 constexpr UINT NUM_ELEMENTS = NUM_X * NUM_Y * NUM_Z;   // Original MSDN value is 1024. Changed for benchmark. Note about differrent limits for x64 and ia32 builds.
-constexpr UINT LATENCY_CHAIN = NUM_ELEMENTS / 2;       // Independent settings for LATENCY_CHAIN and NUM_ELEMENTS at v0.5.3.
-
+constexpr UINT LATENCY_CHAIN = NUM_ELEMENTS / 2;       // Independent settings for LATENCY_CHAIN and NUM_ELEMENTS at v0.5.3+.
 constexpr UINT SHADER_X = 1;        // This parameter means threads per wave front (?) Typical optimal is 32 (NVidia) and 64 (AMD) ?
 constexpr UINT SHADER_Y = 1;        // But here set to { 1,1,1 } for prevent parallelism because latency test.
 constexpr UINT SHADER_Z = 1;
@@ -72,6 +78,19 @@ constexpr UINT DISPATCH_Y = 1;
 constexpr UINT DISPATCH_Z = 1;
 constexpr UINT STEP_Y = SHADER_X * DISPATCH_X;
 constexpr UINT STEP_Z = SHADER_X * DISPATCH_X * SHADER_Y * DISPATCH_Y;
+
+enum AddressType
+{
+    ADDR_INC,
+    ADDR_DEC,
+    ADDR_SRNG,
+    ADDR_HRNG
+};
+
+// Note hardware random number generator (RNG) give not repeatable results, this important for address-depend timings.
+// Note software RNG algorithm results sequence depend on latency chain length, and latency test results is very sensitive to random sequence.
+// Increment mode yet experimentally selected as optimal.
+constexpr UINT ADDRESS_MODE = ADDR_INC;
 
 // Force buffer allocation at system DRAM if this flag is TRUE (under-debug, can cause implementation-specific effects).
 // Assumed typical scenario for discrette GPU-initiated traffic at PCIe-based platform: 
@@ -147,11 +166,11 @@ int main()
 {
     std::cout << "[ Measure DRAM/VRAM/PCIe latency by GPU. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Engineering sample v0.5.4 (x64).       ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.5 (x64).       ]" << std::endl;
 #elif _WIN32
-    std::cout << "[ Engineering sample v0.5.4 (ia32).      ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.5 (ia32).      ]" << std::endl;
 #elif
-    std::cout << "[ Engineering sample v0.5.4 (unknown platform). ]" << std::endl;
+    std::cout << "[ Engineering sample v0.5.5 (unknown platform). ]" << std::endl;
 #endif
     std::cout << "[ Based on MSDN information and sources. ]" << std::endl << std::endl;
 
@@ -337,42 +356,112 @@ int main()
     // (7) Generating test patterns.
 
     std::cout << "Generating initial data: test patterns..." << std::endl;
+    constexpr UINT64 RDRAND_MASK = 0x40000000;
+    bool hardwareRng = false;
+    UINT addressMode = ADDRESS_MODE;
+    if (ADDRESS_MODE == ADDR_HRNG)
+    {   // If hardware random number generator selected by option, required check RDRAND instruction support.
+        int cpudata[4];
+        __cpuid(cpudata, 0);
+        if (cpudata[0] >= 1)
+        {
+            __cpuid(cpudata, 1);
+            if ((cpudata[2] & RDRAND_MASK))
+            {
+                hardwareRng = true;
+            }
+        }
+        if (!hardwareRng)
+        {
+            std::cout << "Hardware RNG not supported or locked." << std::endl;
+            cleaningUpAndWaitKey();
+            return 7;
+        }
+    }
+
     for (int i = 0; i < NUM_ELEMENTS; i++)
     {
         g_vBuf0[i].link = 0;
         g_vBuf1[i].link = 0;
     }
 
-    for (int i = 0; i < LATENCY_CHAIN; i++)
-    {
-        g_vBuf1[i].link = i;
-    }
-
-    constexpr UINT64 RANDOM_SEED = 0x3;
-    constexpr UINT64 RANDOM_MULTIPLIER = 0x5DEECE66D;
-    constexpr UINT64 RANDOM_ADDEND = 0xB;
     constexpr int CHAIN_END_MARKER = -5;
-    UINT64 seed = RANDOM_SEED;
-    int modValue = LATENCY_CHAIN;
-    int modIndex = 0;
-    for (int i = 0; i < LATENCY_CHAIN; i++)
-    {
-        seed = seed * RANDOM_MULTIPLIER + RANDOM_ADDEND;
-        modIndex = seed % modValue;
-        int temp = g_vBuf1[i].link;
-        g_vBuf1[i].link = g_vBuf1[modIndex].link;
-        g_vBuf1[modIndex].link = temp;
-    }
-
     int entry = CHAIN_END_MARKER;
-    for (int i = 0; i < LATENCY_CHAIN; i++)
+    if ((addressMode == ADDR_SRNG) || (addressMode == ADDR_HRNG))
     {
-        int temp = g_vBuf1[i].link;
-        g_vBuf0[temp].link = entry;
-        entry = temp;
-    }
-    g_vBuf1[0].link = entry;
+        for (int i = 0; i < LATENCY_CHAIN; i++)
+        {
+            g_vBuf1[i].link = i;
+        }
 
+        int modValue = LATENCY_CHAIN;
+        if (hardwareRng)
+        {
+            for (int i = 0; i < LATENCY_CHAIN; i++)
+            {
+#if _WIN64
+                UINT64 random = 0;
+                while (!_rdrand64_step(&random));
+#elif _WIN32
+                UINT32 random = 0;
+                while (!_rdrand32_step(&random));
+#endif
+                int modIndex = random % modValue;
+                int temp = g_vBuf1[i].link;
+                g_vBuf1[i].link = g_vBuf1[modIndex].link;
+                g_vBuf1[modIndex].link = temp;
+            }
+        }
+        else
+        {
+            constexpr UINT64 RANDOM_SEED = 0x3;
+            constexpr UINT64 RANDOM_MULTIPLIER = 0x5DEECE66D;
+            constexpr UINT64 RANDOM_ADDEND = 0xB;
+            UINT64 seed = RANDOM_SEED;
+            for (int i = 0; i < LATENCY_CHAIN; i++)
+            {
+                seed = seed * RANDOM_MULTIPLIER + RANDOM_ADDEND;
+                int modIndex = seed % modValue;
+                int temp = g_vBuf1[i].link;
+                g_vBuf1[i].link = g_vBuf1[modIndex].link;
+                g_vBuf1[modIndex].link = temp;
+            }
+        }
+
+        for (int i = 0; i < LATENCY_CHAIN; i++)
+        {
+            int temp = g_vBuf1[i].link;
+            g_vBuf0[temp].link = entry;
+            entry = temp;
+        }
+    }
+    
+    else if (addressMode == ADDR_INC)
+    {
+        for (int i = LATENCY_CHAIN - 1; i >= 0; i--)
+        {
+            g_vBuf0[i].link = entry;
+            entry = i;
+        }
+    }
+    
+    else if (addressMode == ADDR_DEC)
+    {
+        for (int i = 0; i < LATENCY_CHAIN; i++)
+        {
+            g_vBuf0[i].link = entry;
+            entry = i;
+        }
+    }
+    
+    else
+    {
+        std::cout << "Internal error: wrong address mode selection." << std::endl;
+        cleaningUpAndWaitKey();
+        return 7;
+    }
+
+    g_vBuf1[0].link = entry;
     for (int i = 1; i < LATENCY_CHAIN; i++)
     {
         g_vBuf1[i].link = 0;
@@ -394,7 +483,6 @@ int main()
             checkBound = true;
         }
     }
-
     if ((checkLength != LATENCY_CHAIN) || checkBound)
     {
         std::cout << "Internal error: randomization algorithm failed." << std::endl;
