@@ -61,19 +61,26 @@ enum AddressType
     ADDR_HRNG
 };
 
+// "Hot" parameters for adaptation.
+   #define BIG_GPU
 // #define SMALL_GPU
-#ifndef SMALL_GPU
-// "Hot" parameters.
-constexpr UINT ADDRESS_MODE  = ADDR_HRNG;         // Select address sequence generation or randomization method.
+#ifdef BIG_GPU
+constexpr UINT ADDRESS_MODE = ADDR_HRNG;          // Select address sequence generation or randomization method.
 constexpr UINT LATENCY_CHAIN = 2 * 1024 * 1024;   // Independent settings for LATENCY_CHAIN and NUM_ELEMENTS at v0.5.3+.
 constexpr BOOL SRC_PCIE_MODE = TRUE;              // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
 constexpr BOOL DST_PCIE_MODE = TRUE;              // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
 constexpr UINT MEASUREMENT_REPEATS = 10;          // Number of measurement repeats in the application.
-#else
+#elif defined SMALL_GPU 
 constexpr UINT ADDRESS_MODE = ADDR_INC;           // Select address sequence generation or randomization method.
 constexpr UINT LATENCY_CHAIN = 512 * 1024;        // Independent settings for LATENCY_CHAIN and NUM_ELEMENTS at v0.5.3+.
 constexpr BOOL SRC_PCIE_MODE = TRUE;              // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
 constexpr BOOL DST_PCIE_MODE = TRUE;              // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
+constexpr UINT MEASUREMENT_REPEATS = 100;         // Number of measurement repeats in the application.
+#else
+constexpr UINT ADDRESS_MODE  = ADDR_DEC;          // Select address sequence generation or randomization method.
+constexpr UINT LATENCY_CHAIN = 4096;              // Independent settings for LATENCY_CHAIN and NUM_ELEMENTS at v0.5.3+.
+constexpr BOOL SRC_PCIE_MODE = FALSE;             // This flag controls SOURCE data location for read, copy and latency. FALSE=VRAM, TRUE=DRAM.
+constexpr BOOL DST_PCIE_MODE = FALSE;             // This flag controls DESTINATION data location for write and copy. FALSE=VRAM, TRUE=DRAM.
 constexpr UINT MEASUREMENT_REPEATS = 100;         // Number of measurement repeats in the application.
 #endif
 
@@ -141,6 +148,12 @@ struct ShaderStatusType
 
 ShaderStatusType shaderMonitor{ 0,0,0,0,0,0 };
 ApplicationStatusType applicationMonitor{ 0 };
+
+// Compute shader source as text string.
+// This source string compiled in runtime by GPU driver. Result is GPU-executable code, executed by GPU.
+// https://learn.microsoft.com/en-us/windows/win32/direct3d11/direct3d-11-advanced-stages-compute-shader
+// https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl
+// https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-variable-register
 
 const char SHADER_SOURCE_LATENCY[] =
 "struct BufType\r\n"
@@ -212,11 +225,11 @@ int main()
 {
     std::cout << "[ GPU to DRAM/VRAM/PCIe latency with shader execution monitoring. ]" << std::endl;
 #if _WIN64
-    std::cout << "[ Based on MSDN. Engineering sample v0.6.0 (x64).                 ]" << std::endl << std::endl;
+    std::cout << "[ Based on MSDN. Engineering sample v0.6.1 (x64).                 ]" << std::endl << std::endl;
 #elif _WIN32
-    std::cout << "[ Based on MSDN. Engineering sample v0.6.0 (ia32).                ]" << std::endl << std::endl;
+    std::cout << "[ Based on MSDN. Engineering sample v0.6.1 (ia32).                ]" << std::endl << std::endl;
 #elif
-    std::cout << "[ Based on MSDN. Engineering sample v0.6.0 (unknown platform).    ]" << std::endl << std::endl;
+    std::cout << "[ Based on MSDN. Engineering sample v0.6.1 (unknown platform).    ]" << std::endl << std::endl;
 #endif
 
     // (1) Read performance counter timer frequency.
@@ -243,7 +256,8 @@ int main()
     std::cout << "Allocating memory..." << std::endl;
     UINT srcCount = LATENCY_CHAIN;
     UINT dstBytes = sizeof(ShaderStatusType);
-    if ((srcCount > NUM_ELEMENTS) || (dstBytes > DST_ALLOCATED_BYTES))
+    int chainMarker = CHAIN_MARKER_FOR_GPU;
+    if ((srcCount > NUM_ELEMENTS) || (dstBytes > DST_ALLOCATED_BYTES) || (chainMarker >= NUM_ELEMENTS) || (chainMarker <= 0))
     {
         std::cout << "Internal error: bad settings." << std::endl;
             cleaningUpAndWaitKey();
@@ -414,7 +428,7 @@ int main()
     // (7) Generating test patterns.
 
     std::cout << "Generating initial data: test patterns..." << std::endl;
-    constexpr UINT64 RDRAND_MASK = 0x40000000;
+    constexpr UINT RDRAND_MASK = 0x40000000;
     bool hardwareRng = false;
     UINT addressMode = ADDRESS_MODE;
     if (ADDRESS_MODE == ADDR_HRNG)
