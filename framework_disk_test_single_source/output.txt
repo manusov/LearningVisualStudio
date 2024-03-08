@@ -1,4 +1,4 @@
-Mass storage performance test v0.02.00 (single source file edition) (x64).
+Mass storage performance test v0.02.01 (single source file edition) (ia32).
 Input configuration file parsed OK.
 
  Benchmark scenario options.
@@ -25,23 +25,23 @@ Input configuration file parsed OK.
 -------------------------------
 
 Performance frequency 10.000 MHz, period 0.100 microseconds.
-Memory allocated, base=0000024D37890000h, size=0000000004000000h.
-Memory initializing (ALL_ZEROES), fill rate = 9852.289 MBPS.
+Memory allocated, base=0000000001240000h, size=0000000004000000h.
+Memory initializing (ALL_ZEROES), fill rate = 9122.142 MBPS.
 
  Create files.
 --------------------------------------------------------------------
  Index     Handle (hex)         Path
 --------------------------------------------------------------------
- 0         0000000000000098     src_00000000.bin
- 1         000000000000009C     src_00000001.bin
- 2         00000000000000A0     src_00000002.bin
- 3         00000000000000A4     src_00000003.bin
- 4         00000000000000A8     src_00000004.bin
- 0         00000000000000AC     dst_00000000.bin
- 1         00000000000000B0     dst_00000001.bin
- 2         00000000000000B4     dst_00000002.bin
- 3         00000000000000B8     dst_00000003.bin
- 4         00000000000000BC     dst_00000004.bin
+ 0         00000000000000F4     src_00000000.bin
+ 1         00000000000000F8     src_00000001.bin
+ 2         00000000000000FC     src_00000002.bin
+ 3         0000000000000100     src_00000003.bin
+ 4         0000000000000104     src_00000004.bin
+ 0         0000000000000108     dst_00000000.bin
+ 1         000000000000010C     dst_00000001.bin
+ 2         0000000000000110     dst_00000002.bin
+ 3         0000000000000114     dst_00000003.bin
+ 4         0000000000000118     dst_00000004.bin
 --------------------------------------------------------------------
 
  Wait before start write (2000 ms).
@@ -49,12 +49,12 @@ Memory initializing (ALL_ZEROES), fill rate = 9852.289 MBPS.
 -------------------------------
  Index     MBPS
 -------------------------------
- 0         515.018
- 1         522.482
- 2         522.770
- 3         523.346
- 4         522.300
- Integral  520.937
+ 0         518.011
+ 1         520.592
+ 2         517.058
+ 3         517.434
+ 4         511.778
+ Integral  516.702
 -------------------------------
 
  Wait before start copy (3000 ms).
@@ -62,12 +62,12 @@ Memory initializing (ALL_ZEROES), fill rate = 9852.289 MBPS.
 -------------------------------
  Index     MBPS
 -------------------------------
- 0         267.715
- 1         269.570
- 2         269.393
- 3         269.072
- 4         268.861
- Integral  268.855
+ 0         267.656
+ 1         268.009
+ 2         262.035
+ 3         267.656
+ 4         265.923
+ Integral  266.172
 -------------------------------
 
  Wait before start read (1000 ms).
@@ -75,12 +75,12 @@ Memory initializing (ALL_ZEROES), fill rate = 9852.289 MBPS.
 -------------------------------
  Index     MBPS
 -------------------------------
- 0         546.256
- 1         555.040
- 2         554.839
- 3         555.836
- 4         555.798
- Integral  553.249
+ 0         544.321
+ 1         536.318
+ 2         553.590
+ 3         553.584
+ 4         554.223
+ Integral  548.034
 -------------------------------
 
  Delete files.
@@ -103,9 +103,9 @@ Memory initializing (ALL_ZEROES), fill rate = 9852.289 MBPS.
 --------------------------------------------------------------------
  Operation      min           max         average       median
 --------------------------------------------------------------------
- READ         546.256       555.836       553.000       555.040
- WRITE        515.018       523.346       520.800       522.482
- COPY         267.715       269.570       268.400       269.072
+ READ         536.318       554.223       548.407       553.584
+ WRITE        511.778       520.592       516.974       517.434
+ COPY         262.035       268.009       266.256       267.656
 --------------------------------------------------------------------
 
 Performance scenario OK.

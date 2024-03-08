@@ -3056,7 +3056,7 @@ void TaskWork::waitTime(char* msg, DWORD milliseconds, const char* operationName
         Sleep(milliseconds);
     }
 }
-void TaskWork::writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode)
+void TaskWork::writeStatistics(char* msg, const char* statisticsName, std::vector<double>& speeds, bool tableMode)
 {
     double min = 0.0, max = 0.0, average = 0.0, median = 0.0;
     AppLib::calculateStatistics(speeds, min, max, average, median);

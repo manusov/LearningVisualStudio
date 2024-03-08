@@ -64,7 +64,7 @@ public:
 	// Decode Windows error code to error description string.
 	static void storeSystemErrorName(char* buffer, size_t limit, DWORD errorCode);
 	// Calculate statistics for results vector: min, max, average, median.
-	static void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
+	static void calculateStatistics(std::vector<double>& data, double& min, double& max, double& average, double& median);
 	static size_t getCurrentOutSize();
 private:
 	static void colorHelper(WORD color);

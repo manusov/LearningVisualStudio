@@ -24,7 +24,7 @@ const char* DATA_NAMES[]
 	"SOFT_RANDOM",
 	"HARD_RANDOM"  };
 
-void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds)
+void writeStatistics(char* msg, const char* statisticsName, std::vector<double>& speeds)
 {
 	double min = 0.0, max = 0.0, average = 0.0, median = 0.0;
 	AppLib::calculateStatistics(speeds, min, max, average, median);

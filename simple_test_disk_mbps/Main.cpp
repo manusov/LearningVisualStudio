@@ -151,13 +151,13 @@ size_t storeHexPointer(char* buffer, size_t limit, LPVOID ptr, bool h);
 void storeSystemErrorName(char* buffer, size_t limit, DWORD errorCode);          // Decode Windows error code to error description string.
 void storeBaseAndSize(char* buffer, size_t limit, DWORD64 blockBase, DWORD64 blockSize);  // Store base address and size for memory block.
 // Calculate statistics for results vector: min, max, average, median.
-void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
+void calculateStatistics(std::vector<double>& data, double& min, double& max, double& average, double& median);
 // Support application context.
 STATUS_CODES openContext(DWORD fileSize, DWORD minCpu, DWORD maxCpu, DWORD minDomain, DWORD maxDomain, LPVOID& fileData, DWORD_PTR& previousAffinity);
 STATUS_CODES closeContext(char* msg, STATUS_CODES operationStatus, LPVOID fileData, DWORD_PTR previousAffinity);
 // Operations for support disk benchmarks.
 DWORD64 getHandle64(HANDLE handle);
-void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode);
+void writeStatistics(char* msg, const char* statisticsName, std::vector<double>& speeds, bool tableMode);
 void waitTime(char* msg, DWORD milliseconds, const char* operationName);
 void buildData(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, LPVOID fileData, DWORD32 fileSize);
 
@@ -847,13 +847,13 @@ void storeBaseAndSize(char* buffer, size_t limit, DWORD64 blockBase, DWORD64 blo
         }
     }
 }
-void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median)
+void calculateStatistics(std::vector<double>& data, double& min, double& max, double& average, double& median)
 {
     size_t n = data.size();
     if (n)
     {
         std::sort(data.begin(), data.end());
-        double sum = std::accumulate(data.begin(), data.end(), 0);
+        double sum = std::accumulate(data.begin(), data.end(), double(0));
         min = data[0];
         max = data[n - 1];
         average = sum / n;
@@ -940,7 +940,7 @@ void waitTime(char* msg, DWORD milliseconds, const char* operationName)
         Sleep(milliseconds);
     }
 }
-void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode)
+void writeStatistics(char* msg, const char* statisticsName, std::vector<double>& speeds, bool tableMode)
 {
     double min = 0.0, max = 0.0, average = 0.0, median = 0.0;
     calculateStatistics(speeds, min, max, average, median);

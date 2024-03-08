@@ -44,7 +44,7 @@ public:
 private:
     static DWORD64 getHandle64(HANDLE handle);
     static void waitTime(char* msg, DWORD milliseconds, const char* operationName);
-    static void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode);
+    static void writeStatistics(char* msg, const char* statisticsName, std::vector<double>& speeds, bool tableMode);
     static void buildData(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, LPVOID fileData, DWORD32 fileSize);
     static void buildAddress(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, std::vector<IO_DESCRIPTOR>& list, unsigned int blocksPerFile, unsigned int fileCount);
     static bool ioDescriptorComparator(IO_DESCRIPTOR d1, IO_DESCRIPTOR d2);

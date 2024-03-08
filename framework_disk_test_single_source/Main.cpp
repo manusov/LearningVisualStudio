@@ -163,7 +163,7 @@ namespace APPCONST
     // Application strings and report file name.
     const char* const MSG_STARTING = "Starting...";
     const char* const ANY_KEY_STRING = "Press any key...";
-    const char* const MSG_APPLICATION = "Mass storage performance test v0.02.00 (single source file edition)";
+    const char* const MSG_APPLICATION = "Mass storage performance test v0.02.01 (single source file edition)";
     const char* const DEFAULT_IN_NAME = "input.txt";
     const char* const DEFAULT_OUT_NAME = "output.txt";
 #if _WIN64
@@ -337,14 +337,14 @@ BOOL storeExecReportPath(char* buffer, size_t limit, const char* name);
 // Decode Windows error code to error description string.
 void storeSystemErrorName(char* buffer, size_t limit, DWORD errorCode);
 // Calculate statistics for results vector: min, max, average, median.
-void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
+void calculateStatistics(std::vector<double>& data, double& min, double& max, double& average, double& median);
 void colorHelper(WORD color);
 void colorRestoreHelper();
 void cellPrintHelper(char* buffer, size_t limit, size_t cell, size_t count);
 // Target operation-specific tasks.
 DWORD64 getHandle64(HANDLE handle);
 void waitTime(char* msg, DWORD milliseconds, const char* operationName);
-void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode);
+void writeStatistics(char* msg, const char* statisticsName, std::vector<double>& speeds, bool tableMode);
 void buildData(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, LPVOID fileData, DWORD32 fileSize);
 void buildAddress(char* msg, LARGE_INTEGER& hz, D_TYPE dataType, std::vector<IO_DESCRIPTOR>& list, unsigned int blocksPerFile, unsigned int fileCount);
 bool ioDescriptorComparator(IO_DESCRIPTOR d1, IO_DESCRIPTOR d2);
@@ -1333,13 +1333,13 @@ void storeSystemErrorName(char* buffer, size_t limit, DWORD errorCode)
         LocalFree(lpvMessageBuffer);
     }
 }
-void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median)
+void calculateStatistics(std::vector<double>& data, double& min, double& max, double& average, double& median)
 {
     size_t n = data.size();
     if (n)
     {
         std::sort(data.begin(), data.end());
-        double sum = std::accumulate(data.begin(), data.end(), 0);
+        double sum = std::accumulate(data.begin(), data.end(), double(0));
         min = data[0];
         max = data[n - 1];
         average = sum / n;
@@ -1400,7 +1400,7 @@ void waitTime(char* msg, DWORD milliseconds, const char* operationName)
         Sleep(milliseconds);
     }
 }
-void writeStatistics(char* msg, const char* statisticsName, std::vector<double> speeds, bool tableMode)
+void writeStatistics(char* msg, const char* statisticsName, std::vector<double>& speeds, bool tableMode)
 {
     double min = 0.0, max = 0.0, average = 0.0, median = 0.0;
     calculateStatistics(speeds, min, max, average, median);

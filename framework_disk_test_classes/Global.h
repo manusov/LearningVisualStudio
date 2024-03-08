@@ -119,7 +119,7 @@ namespace APPCONST
     // Application strings and report file name.
     const char* const MSG_STARTING = "Starting...";
     const char* const ANY_KEY_STRING = "Press any key...";
-    const char* const MSG_APPLICATION = "Mass storage performance test v0.02.00 (classes source file edition)";
+    const char* const MSG_APPLICATION = "Mass storage performance test v0.02.01 (classes source file edition)";
     const char* const DEFAULT_IN_NAME = "input.txt";
     const char* const DEFAULT_OUT_NAME = "output.txt";
     constexpr int MAX_TEXT_STRING = MAX_PATH;
