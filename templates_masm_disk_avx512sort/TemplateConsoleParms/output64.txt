@@ -1,0 +1,29 @@
+Performance test template v0.03.00 (classes source file edition) (x64).
+Input configuration file parsed OK.
+
+ Benchmark scenario options.
+-------------------------------
+ srcpath     f:\exchange\
+ dstpath     f:\backup\
+ filesize    64.000 MB           
+ blocksize   16.000 MB           
+ filecount   7
+ repeats     3
+ address     mbps
+ data        zeroes
+ nobuf       1
+ writethr    1
+ sequental   0
+ waitread    1000
+ waitwrite   2000
+ waitcopy    3000
+ queue       1
+ mincpu      -1
+ maxcpu      -1
+ mindomain   -1
+ maxdomain   -1
+-------------------------------
+
+
+Performance scenario error 21 = INTERNAL ERROR.
+

@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Исходные файлы">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Файлы заголовков">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Файлы ресурсов">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Исходные файлы MASM">
+      <UniqueIdentifier>{fbe2715d-0df6-4332-a691-ca636284780b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы INTEL">
+      <UniqueIdentifier>{9ae64da2-21f2-4c06-8371-1696e299f661}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AppLib.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Main.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskParms.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskWork.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskWorkIntel.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskWorkNetSort.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AppLib.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Global.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskParms.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskWork.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx2-32bit-half.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx2-32bit-qsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx2-64bit-qsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx2-emu-funcs.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512-16bit-common.h">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512-16bit-qsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512-32bit-qsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512-64bit-argsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512-64bit-common.h">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512-64bit-keyvaluesort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512-64bit-qsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\avx512fp16-16bit-qsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\xss-common-argsort.h">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\xss-common-includes.h">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\xss-common-qsort.h">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\xss-network-keyvaluesort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\xss-network-qsort.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\xss-optimal-networks.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="INTEL\xss-pivot-selection.hpp">
+      <Filter>Исходные файлы INTEL</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskWorkIntel.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskWorkNetSort.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="asm32_v1.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+    <MASM Include="asm64_v1.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+    <MASM Include="asm32_v2.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+    <MASM Include="asm64_v2.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+    <MASM Include="asm32_net.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+    <MASM Include="asm64_net.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+    <MASM Include="asm32_v3.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+    <MASM Include="asm64_v3.asm">
+      <Filter>Исходные файлы MASM</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>

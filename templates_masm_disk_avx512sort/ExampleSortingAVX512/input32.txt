@@ -1,0 +1,27 @@
+scenario  = test1               ; test1 ; testintel ; testnetsort
+data      = hrnd                ; zero ; ones ; inc ; dec ; srnd ; hrnd
+start     = 1000000
+end       = 10000000
+delta     = 500000
+
+
+;scenario  = testnetsort         ; test1 ; testintel ; testnetsort
+
+
+;scenario  = test1
+;data      = hrnd  ; inc
+;start     = 10000
+;end       = 20000
+;delta     = 1000
+
+;scenario  = test1
+;data      = ones
+;start     = 40000
+;end       = 100000
+;delta     = 10000
+
+;scenario  = test1
+;data      = hrnd
+;start     = 1000000
+;end       = 10000000
+;delta     = 1000000

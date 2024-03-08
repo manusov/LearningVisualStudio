@@ -1,0 +1,181 @@
+Performance test template v0.03.00 (classes source file edition) (ia32).
+Input configuration file parsed OK.
+
+ Benchmark scenario options.
+-------------------------------
+ srcpath     f:\exchange\
+ dstpath     f:\backup\
+ filesize    64.000 MB           
+ blocksize   16.000 MB           
+ filecount   15
+ repeats     2
+ address     mbps
+ data        zeroes
+ nobuf       1
+ writethr    1
+ sequental   0
+ waitread    1000
+ waitwrite   2000
+ waitcopy    3000
+ queue       1
+ mincpu      -1
+ maxcpu      -1
+ mindomain   -1
+ maxdomain   -1
+-------------------------------
+
+Performance frequency 10.000 MHz, period 0.100 microseconds.
+Memory allocated, base=00000000012B0000h, size=0000000004000000h.
+Memory initializing (ALL_ZEROES), fill rate = 9308.006 MBPS.
+
+ Create files.
+--------------------------------------------------------------------
+ Index     Handle (hex)         Path
+--------------------------------------------------------------------
+ 0         0000000000000098     f:\exchange\src_00000000.bin
+ 1         000000000000009C     f:\exchange\src_00000001.bin
+ 2         0000000000000114     f:\exchange\src_00000002.bin
+ 3         0000000000000104     f:\exchange\src_00000003.bin
+ 4         00000000000000E0     f:\exchange\src_00000004.bin
+ 5         0000000000000108     f:\exchange\src_00000005.bin
+ 6         0000000000000118     f:\exchange\src_00000006.bin
+ 7         000000000000011C     f:\exchange\src_00000007.bin
+ 8         00000000000000E4     f:\exchange\src_00000008.bin
+ 9         00000000000000E8     f:\exchange\src_00000009.bin
+ 10        0000000000000120     f:\exchange\src_0000000A.bin
+ 11        0000000000000124     f:\exchange\src_0000000B.bin
+ 12        0000000000000128     f:\exchange\src_0000000C.bin
+ 13        000000000000012C     f:\exchange\src_0000000D.bin
+ 14        0000000000000130     f:\exchange\src_0000000E.bin
+ 0         0000000000000134     f:\backup\dst_00000000.bin
+ 1         0000000000000138     f:\backup\dst_00000001.bin
+ 2         000000000000013C     f:\backup\dst_00000002.bin
+ 3         0000000000000140     f:\backup\dst_00000003.bin
+ 4         0000000000000144     f:\backup\dst_00000004.bin
+ 5         0000000000000148     f:\backup\dst_00000005.bin
+ 6         000000000000014C     f:\backup\dst_00000006.bin
+ 7         0000000000000150     f:\backup\dst_00000007.bin
+ 8         0000000000000154     f:\backup\dst_00000008.bin
+ 9         0000000000000158     f:\backup\dst_00000009.bin
+ 10        000000000000015C     f:\backup\dst_0000000A.bin
+ 11        0000000000000160     f:\backup\dst_0000000B.bin
+ 12        0000000000000164     f:\backup\dst_0000000C.bin
+ 13        0000000000000168     f:\backup\dst_0000000D.bin
+ 14        000000000000016C     f:\backup\dst_0000000E.bin
+--------------------------------------------------------------------
+
+ Wait before start write (2000 ms).
+ Write file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         169.993
+ 1         67.107
+ 2         125.455
+ 3         169.492
+ 4         173.808
+ 5         75.413
+ 6         82.561
+ 7         102.110
+ 8         171.487
+ 9         190.997
+ 10        190.802
+ 11        190.742
+ 12        187.765
+ 13        190.775
+ 14        190.858
+ Integral  132.785
+-------------------------------
+
+ Wait before start copy (3000 ms).
+ Copy file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         88.143
+ 1         88.633
+ 2         90.607
+ 3         89.815
+ 4         91.263
+ 5         76.318
+ 6         91.304
+ 7         90.626
+ 8         92.002
+ 9         91.311
+ 10        92.733
+ 11        84.172
+ 12        89.916
+ 13        92.727
+ 14        93.410
+ Integral  89.298
+-------------------------------
+
+ Wait before start read (1000 ms).
+ Read file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         177.963
+ 1         183.046
+ 2         193.929
+ 3         187.807
+ 4         187.896
+ 5         150.369
+ 6         190.861
+ 7         193.723
+ 8         193.930
+ 9         193.901
+ 10        193.932
+ 11        193.938
+ 12        193.293
+ 13        188.012
+ 14        193.847
+ Integral  186.925
+-------------------------------
+
+ Delete files.
+--------------------------------------------------------------------
+ Index     Path
+--------------------------------------------------------------------
+ 0         f:\exchange\src_00000000.bin
+ 1         f:\exchange\src_00000001.bin
+ 2         f:\exchange\src_00000002.bin
+ 3         f:\exchange\src_00000003.bin
+ 4         f:\exchange\src_00000004.bin
+ 5         f:\exchange\src_00000005.bin
+ 6         f:\exchange\src_00000006.bin
+ 7         f:\exchange\src_00000007.bin
+ 8         f:\exchange\src_00000008.bin
+ 9         f:\exchange\src_00000009.bin
+ 10        f:\exchange\src_0000000A.bin
+ 11        f:\exchange\src_0000000B.bin
+ 12        f:\exchange\src_0000000C.bin
+ 13        f:\exchange\src_0000000D.bin
+ 14        f:\exchange\src_0000000E.bin
+ 0         f:\backup\dst_00000000.bin
+ 1         f:\backup\dst_00000001.bin
+ 2         f:\backup\dst_00000002.bin
+ 3         f:\backup\dst_00000003.bin
+ 4         f:\backup\dst_00000004.bin
+ 5         f:\backup\dst_00000005.bin
+ 6         f:\backup\dst_00000006.bin
+ 7         f:\backup\dst_00000007.bin
+ 8         f:\backup\dst_00000008.bin
+ 9         f:\backup\dst_00000009.bin
+ 10        f:\backup\dst_0000000A.bin
+ 11        f:\backup\dst_0000000B.bin
+ 12        f:\backup\dst_0000000C.bin
+ 13        f:\backup\dst_0000000D.bin
+ 14        f:\backup\dst_0000000E.bin
+--------------------------------------------------------------------
+
+ Performance Statistics.
+--------------------------------------------------------------------
+ Operation      min           max         average       median
+--------------------------------------------------------------------
+ READ         150.369       193.938       187.763       193.293
+ WRITE         67.107       190.997       151.958       171.487
+ COPY          76.318        93.410        89.532        90.626
+--------------------------------------------------------------------
+
+Performance scenario OK.

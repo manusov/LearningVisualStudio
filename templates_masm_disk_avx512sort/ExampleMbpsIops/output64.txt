@@ -1,0 +1,195 @@
+Performance test template v0.03.00 (classes source file edition) (x64).
+Input configuration file parsed OK.
+
+ Benchmark scenario options.
+-------------------------------
+ srcpath     f:\exchange\
+ dstpath     f:\backup\
+ filesize    64.000 MB           
+ blocksize   16.000 MB           
+ filecount   17
+ repeats     2
+ address     mbps
+ data        zeroes
+ nobuf       1
+ writethr    1
+ sequental   0
+ waitread    1000
+ waitwrite   2000
+ waitcopy    3000
+ queue       1
+ mincpu      -1
+ maxcpu      -1
+ mindomain   -1
+ maxdomain   -1
+-------------------------------
+
+Performance frequency 10.000 MHz, period 0.100 microseconds.
+Memory allocated, base=00000164248F0000h, size=0000000004000000h.
+Memory initializing (ALL_ZEROES), fill rate = 9867.790 MBPS.
+
+ Create files.
+--------------------------------------------------------------------
+ Index     Handle (hex)         Path
+--------------------------------------------------------------------
+ 0         0000000000000098     f:\exchange\src_00000000.bin
+ 1         0000000000000094     f:\exchange\src_00000001.bin
+ 2         00000000000000A4     f:\exchange\src_00000002.bin
+ 3         00000000000000A8     f:\exchange\src_00000003.bin
+ 4         00000000000000AC     f:\exchange\src_00000004.bin
+ 5         00000000000000B0     f:\exchange\src_00000005.bin
+ 6         00000000000000B4     f:\exchange\src_00000006.bin
+ 7         00000000000000B8     f:\exchange\src_00000007.bin
+ 8         00000000000000BC     f:\exchange\src_00000008.bin
+ 9         00000000000000C0     f:\exchange\src_00000009.bin
+ 10        00000000000000C4     f:\exchange\src_0000000A.bin
+ 11        00000000000000C8     f:\exchange\src_0000000B.bin
+ 12        00000000000000CC     f:\exchange\src_0000000C.bin
+ 13        00000000000000D0     f:\exchange\src_0000000D.bin
+ 14        00000000000000D4     f:\exchange\src_0000000E.bin
+ 15        00000000000000D8     f:\exchange\src_0000000F.bin
+ 16        00000000000000DC     f:\exchange\src_00000010.bin
+ 0         00000000000000E0     f:\backup\dst_00000000.bin
+ 1         00000000000000E4     f:\backup\dst_00000001.bin
+ 2         00000000000000E8     f:\backup\dst_00000002.bin
+ 3         00000000000000EC     f:\backup\dst_00000003.bin
+ 4         00000000000000F0     f:\backup\dst_00000004.bin
+ 5         00000000000000F4     f:\backup\dst_00000005.bin
+ 6         00000000000000F8     f:\backup\dst_00000006.bin
+ 7         00000000000000FC     f:\backup\dst_00000007.bin
+ 8         0000000000000100     f:\backup\dst_00000008.bin
+ 9         0000000000000104     f:\backup\dst_00000009.bin
+ 10        0000000000000108     f:\backup\dst_0000000A.bin
+ 11        000000000000010C     f:\backup\dst_0000000B.bin
+ 12        0000000000000110     f:\backup\dst_0000000C.bin
+ 13        0000000000000114     f:\backup\dst_0000000D.bin
+ 14        0000000000000118     f:\backup\dst_0000000E.bin
+ 15        000000000000011C     f:\backup\dst_0000000F.bin
+ 16        0000000000000120     f:\backup\dst_00000010.bin
+--------------------------------------------------------------------
+
+ Wait before start write (2000 ms).
+ Write file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         176.837
+ 1         75.925
+ 2         71.468
+ 3         180.403
+ 4         82.623
+ 5         98.476
+ 6         49.636
+ 7         137.067
+ 8         183.177
+ 9         180.443
+ 10        185.845
+ 11        191.795
+ 12        198.199
+ 13        198.196
+ 14        198.227
+ 15        180.451
+ 16        198.165
+ Integral  125.536
+-------------------------------
+
+ Wait before start copy (3000 ms).
+ Copy file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         66.858
+ 1         93.682
+ 2         94.380
+ 3         94.428
+ 4         92.954
+ 5         90.178
+ 6         92.130
+ 7         93.626
+ 8         95.158
+ 9         92.190
+ 10        90.868
+ 11        95.168
+ 12        94.398
+ 13        95.181
+ 14        95.123
+ 15        95.163
+ 16        86.901
+ Integral  91.038
+-------------------------------
+
+ Wait before start read (1000 ms).
+ Read file performance.
+-------------------------------
+ Index     MBPS
+-------------------------------
+ 0         107.868
+ 1         86.455
+ 2         194.869
+ 3         185.848
+ 4         188.203
+ 5         201.867
+ 6         190.574
+ 7         201.593
+ 8         201.508
+ 9         201.502
+ 10        201.790
+ 11        200.925
+ 12        201.509
+ 13        201.514
+ 14        201.035
+ 15        201.507
+ 16        201.521
+ Integral  176.079
+-------------------------------
+
+ Delete files.
+--------------------------------------------------------------------
+ Index     Path
+--------------------------------------------------------------------
+ 0         f:\exchange\src_00000000.bin
+ 1         f:\exchange\src_00000001.bin
+ 2         f:\exchange\src_00000002.bin
+ 3         f:\exchange\src_00000003.bin
+ 4         f:\exchange\src_00000004.bin
+ 5         f:\exchange\src_00000005.bin
+ 6         f:\exchange\src_00000006.bin
+ 7         f:\exchange\src_00000007.bin
+ 8         f:\exchange\src_00000008.bin
+ 9         f:\exchange\src_00000009.bin
+ 10        f:\exchange\src_0000000A.bin
+ 11        f:\exchange\src_0000000B.bin
+ 12        f:\exchange\src_0000000C.bin
+ 13        f:\exchange\src_0000000D.bin
+ 14        f:\exchange\src_0000000E.bin
+ 15        f:\exchange\src_0000000F.bin
+ 16        f:\exchange\src_00000010.bin
+ 0         f:\backup\dst_00000000.bin
+ 1         f:\backup\dst_00000001.bin
+ 2         f:\backup\dst_00000002.bin
+ 3         f:\backup\dst_00000003.bin
+ 4         f:\backup\dst_00000004.bin
+ 5         f:\backup\dst_00000005.bin
+ 6         f:\backup\dst_00000006.bin
+ 7         f:\backup\dst_00000007.bin
+ 8         f:\backup\dst_00000008.bin
+ 9         f:\backup\dst_00000009.bin
+ 10        f:\backup\dst_0000000A.bin
+ 11        f:\backup\dst_0000000B.bin
+ 12        f:\backup\dst_0000000C.bin
+ 13        f:\backup\dst_0000000D.bin
+ 14        f:\backup\dst_0000000E.bin
+ 15        f:\backup\dst_0000000F.bin
+ 16        f:\backup\dst_00000010.bin
+--------------------------------------------------------------------
+
+ Performance Statistics.
+--------------------------------------------------------------------
+ Operation      min           max         average       median
+--------------------------------------------------------------------
+ READ          86.455       201.867       186.476       201.502
+ WRITE         49.636       198.227       152.172       180.443
+ COPY          66.858        95.181        91.670        93.682
+--------------------------------------------------------------------
+
+Performance scenario OK.
