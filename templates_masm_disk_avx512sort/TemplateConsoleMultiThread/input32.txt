@@ -1,0 +1,11 @@
+model       = multithread    ; singlethread ; multithread
+pattern     = readavx512     ; checknoaff ; checkaff ; readavx512
+
+; This options yet reserved. See also:
+; https://github.com/manusov/MemoryBenchmarkWindows/tree/master/memory_performance_framework
+;
+; threadcount = 0              ; thread count, 0 means auto
+; startblock  = 16K            ; start block size, for array-based tests only
+; stopblock   = 64K            ; end block size (inclusive), for array-based tests only
+; step        = 1K             ; step for increment or decrement block size, note startblock=10K, stopblock=5K, step=1K means negative step.
+; repeats     = 500000000      ; measurement repeats
