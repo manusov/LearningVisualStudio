@@ -1,4 +1,4 @@
-Threads management template v0.00.01 (classes source file edition) (x64).
+Threads management template v0.00.02 (classes source file edition) (x64).
 Input configuration file parsed OK.
 
  Benchmark scenario options.
@@ -8,8 +8,8 @@ Input configuration file parsed OK.
 -------------------------------
 
 Measure TSC clock...
-fPC=10.000 MHz, tPC=100.000 ns, fTSC=2496.001 MHz, tTSC=0.401 ns.
+fPC=10.000 MHz, tPC=100.000 ns, fTSC=2496.003 MHz, tTSC=0.401 ns.
 Measuring AVX512 16-thread L1-ZMM read bandwidth...
-16-thread GBPS = 4103.474 GBPS.
+16-thread GBPS = 4072.118 GBPS.
 
 Performance scenario OK.

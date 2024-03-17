@@ -146,9 +146,9 @@ int main(int argc, char** argv)
             {
                 snprintf(msg, APPCONST::MAX_TEXT_STRING, "\r\nPerformance scenario error %d", opStatus);
                 AppLib::writeColor(msg, APPCONST::ERROR_COLOR);
-                if (opStatus < STATUS_MAX)
+                if ((opStatus < STATUS_MAX) && (opStatus >= 0))
                 {
-                    const char* returnName = APPCONST::RETURN_NAMES[static_cast<int>(opStatus)];
+                    const char* returnName = APPCONST::RETURN_NAMES[opStatus];
                     snprintf(msg, APPCONST::MAX_TEXT_STRING, " = %s.\r\n", returnName);
                     AppLib::writeColor(msg, APPCONST::ERROR_COLOR);
                     DWORD osError = GetLastError();
