@@ -36,6 +36,7 @@ Compare std::sort and fragment under debug.
 #include <immintrin.h>
 #include "Global.h"
 #include "AppLib.h"
+#include "AppGuiLib.h"
 
 #define _USE_ASM_V3
 #define _USE_ASM_V2

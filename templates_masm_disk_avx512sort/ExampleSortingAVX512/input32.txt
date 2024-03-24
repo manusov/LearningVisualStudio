@@ -3,6 +3,7 @@ data      = hrnd                ; zero ; ones ; inc ; dec ; srnd ; hrnd
 start     = 1000000
 end       = 10000000
 delta     = 500000
+gui       = off
 
 
 ;scenario  = testnetsort         ; test1 ; testintel ; testnetsort

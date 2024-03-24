@@ -53,6 +53,7 @@ private:
     // Strings for command line options detect.
     static const char* keysScenario[];
     static const char* keysData[];
+    static const char* keysGui[];
     // Pointer command line parameters structure.
     static COMMAND_LINE_PARMS parms;
     // Option control list, used for command line parameters parsing (regular input).

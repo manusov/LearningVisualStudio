@@ -232,6 +232,15 @@ STATUS_CODES TaskWork::runTask(COMMAND_LINE_PARMS* p)
 	writeStatistics(msg, "Time ratio", ratioStatistics, true);
 	AppLib::writeColorLine(APPCONST::TABLE_WIDTH, APPCONST::TABLE_COLOR);
 
+	// Show GUI window with function drawings, if enabled by command line option.
+	if (p->optionGuiEnable == GUI_ON)
+	{
+		AppLib::writeColor("Show window...", APPCONST::NO_ERROR_COLOR);
+		Sleep(1000);
+		AppGuiLib::windowFunction(startCount, endCount, deltaCount, stdStatistics, avxStatistics);
+		AppLib::writeColor("\r\nWindow closed.", APPCONST::NO_ERROR_COLOR);
+	}
+
 	// Exit.
 	if (dataRaw) _aligned_free(dataRaw);
 	return exitCode;

@@ -442,7 +442,7 @@ void AppLib::storeSystemErrorName(char* buffer, size_t limit, DWORD errorCode)
         LocalFree(lpvMessageBuffer);
     }
 }
-void AppLib::calculateStatistics(std::vector<double> &data, double& min, double& max, double& average, double& median)
+void AppLib::calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median)
 {
     size_t n = data.size();
     if (n)

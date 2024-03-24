@@ -136,7 +136,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AppGuiLib.cpp" />
     <ClCompile Include="AppLib.cpp" />
+    <ClCompile Include="DrawYX.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="TaskParms.cpp" />
     <ClCompile Include="TaskWork.cpp" />
@@ -144,7 +146,9 @@
     <ClCompile Include="TaskWorkNetSort.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AppGuiLib.h" />
     <ClInclude Include="AppLib.h" />
+    <ClInclude Include="DrawYX.h" />
     <ClInclude Include="Global.h" />
     <ClInclude Include="INTEL\avx2-32bit-half.hpp" />
     <ClInclude Include="INTEL\avx2-32bit-qsort.hpp" />

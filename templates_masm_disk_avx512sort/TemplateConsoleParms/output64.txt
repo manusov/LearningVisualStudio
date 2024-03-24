@@ -1,4 +1,4 @@
-Performance test template v0.03.00 (classes source file edition) (x64).
+Performance test template v0.03.01 (classes source file edition) (x64).
 Input configuration file parsed OK.
 
  Benchmark scenario options.

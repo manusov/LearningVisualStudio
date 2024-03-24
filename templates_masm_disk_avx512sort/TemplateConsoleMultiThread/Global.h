@@ -96,7 +96,7 @@ namespace APPCONST
     // Application strings and report file name.
     const char* const MSG_STARTING = "Starting...";
     const char* const ANY_KEY_STRING = "Press any key...";
-    const char* const MSG_APPLICATION = "Threads management template v0.00.02 (classes source file edition)";
+    const char* const MSG_APPLICATION = "Threads management template v0.00.03 (classes source file edition)";
     constexpr int MAX_TEXT_STRING = MAX_PATH;
 #if _WIN64
     const char* const MSG_BUILD = "x64";

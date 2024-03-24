@@ -15,7 +15,7 @@ Header of application library helper class.
 namespace APPCONST
 {
 	// Application strings and report file name.
-	const char* const MSG_APPLICATION = "Debug template v0.01.00.";
+	const char* const MSG_APPLICATION = "Debug template v0.01.01.";
 	const char* const MSG_STARTING = "Starting...";
 	// Parameters depend on x64 or ia32 build.
 #if _WIN64
@@ -89,7 +89,7 @@ public:
 	// Decode Windows error code to error description string.
 	static void storeSystemErrorName(char* buffer, size_t limit, DWORD errorCode);
 	// Calculate statistics for results vector: min, max, average, median.
-	static void calculateStatistics(std::vector<double> &data, double& min, double& max, double& average, double& median);
+	static void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
 private:
 	static bool screenMode;
 	static bool fileMode;

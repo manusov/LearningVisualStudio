@@ -38,6 +38,7 @@ void TaskParms::resetBeforeParse()           // Reset options (structure with co
     p->optionStartCount = APPCONST::DEFAULT_START_COUNT;
     p->optionEndCount = APPCONST::DEFAULT_END_COUNT;
     p->optionDeltaCount = APPCONST::DEFAULT_DELTA_COUNT;
+    p->optionGuiEnable = APPCONST::DEFAULT_GUI_ENABLE;
 }
 void TaskParms::correctAfterParse()          // Verify options structure (reserved).
 {
@@ -354,6 +355,7 @@ COMMAND_LINE_PARMS* TaskParms::getCommandLineParms()
 // Strings for command line options detect.
 const char* TaskParms::keysScenario[] = { "test1", "testintel", "testnetsort", nullptr};
 const char* TaskParms::keysData[] = { "zero", "ones", "inc", "dec", "srnd", "hrnd", nullptr};
+const char* TaskParms::keysGui[] = { "off", "on", nullptr };
 // Pointer command line parameters structure.
 COMMAND_LINE_PARMS TaskParms::parms;
 // Option control list, used for command line parameters parsing (regular input).
@@ -363,6 +365,7 @@ const OPTION_ENTRY TaskParms::options[] = {
     { "start"     , nullptr      , &parms.optionStartCount  , INTPARM } ,
     { "end"       , nullptr      , &parms.optionEndCount    , INTPARM } ,
     { "delta"     , nullptr      , &parms.optionDeltaCount  , INTPARM } ,
+    { "gui"       , keysGui      , &parms.optionGuiEnable   , SELPARM } ,
     { nullptr     , nullptr      , nullptr                  , NOPARM  }
 };
 // Status string.

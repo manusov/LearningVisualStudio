@@ -92,7 +92,7 @@ namespace APPCONST
     // Application strings and report file name.
     const char* const MSG_STARTING = "Starting...";
     const char* const ANY_KEY_STRING = "Press any key...";
-    const char* const MSG_APPLICATION = "AVX2 sorting test v0.00.00.";
+    const char* const MSG_APPLICATION = "AVX2 sorting test v0.00.01.";
     constexpr int MAX_TEXT_STRING = MAX_PATH;
 #if _WIN64
     const char* const MSG_BUILD = "x64";

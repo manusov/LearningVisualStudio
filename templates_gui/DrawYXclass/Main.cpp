@@ -7,6 +7,12 @@ UNDER CONSTRUCTION.
 #include <windows.h>
 #include "DrawYX.h"
 
+#if _WIN64
+const char* const WIN_NAME = "Draw function Y=F(X) template v0.00.02 (x64)";
+#elif _WIN32
+const char* const WIN_NAME = "Draw function Y=F(X) template v0.00.02 (ia32)";
+#endif
+
 // Constants for function(s) Y=F(X).
 constexpr int GRID_X = 11;
 constexpr int GRID_Y = 10;
@@ -38,6 +44,7 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     WINDOW_PARMS wP;
     wP.hInstance = hInstance;
     wP.nCmdShow = nCmdShow;
+    wP.winName = WIN_NAME;
 
     FUNCTION_PARMS fP;
     fP.numberOfFunctions = 3;
@@ -56,7 +63,28 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     fP.vX = &vX;
     fP.vY = &vY[0];
 
-    DrawYX(&wP, &fP);
+    DrawYX draw = DrawYX(&wP, &fP);
+    HWND hWnd = draw.GetHwnd();
+
+    if (!hWnd)
+    {
+        constexpr int MAX_STRING = 80;
+        char buffer[MAX_STRING];
+        wsprintf(buffer, "Cannot create window: %s.", WIN_NAME);
+        MessageBox(NULL, buffer, "Error", MB_OK);
+    }
+    else
+    {
+        ShowWindow(hWnd, nCmdShow);
+        UpdateWindow(hWnd);
+        MSG Msg;
+        while (GetMessage(&Msg, NULL, 0, 0))
+        {
+            TranslateMessage(&Msg);
+            DispatchMessage(&Msg);
+        }
+    }
+
     return 0;
 }
 

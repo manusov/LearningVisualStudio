@@ -50,6 +50,10 @@ typedef enum {
     DATA_SRND,
     DATA_HRND
 } DATA_TYPE;
+typedef enum {
+    GUI_OFF,
+    GUI_ON
+} GUI_ENABLE;
 // Parameters Block for user input.
 // This data = f ( user settings at command line or defaults ).
 typedef struct {
@@ -58,6 +62,7 @@ typedef struct {
     DWORD optionStartCount;
     DWORD optionEndCount;
     DWORD optionDeltaCount;
+    DWORD optionGuiEnable;
 } COMMAND_LINE_PARMS;
 // Types of command line options.
 typedef enum {
@@ -90,7 +95,7 @@ namespace APPCONST
     // Application strings and report file name.
     const char* const MSG_STARTING = "Starting...";
     const char* const ANY_KEY_STRING = "Press any key...";
-    const char* const MSG_APPLICATION = "AVX512 sorting test v0.00.00.";
+    const char* const MSG_APPLICATION = "AVX512 sorting test v0.01.01.";
     constexpr int MAX_TEXT_STRING = MAX_PATH;
 #if _WIN64
     const char* const MSG_BUILD = "x64";
@@ -144,6 +149,7 @@ namespace APPCONST
     constexpr DWORD DEFAULT_START_COUNT = 100000;
     constexpr DWORD DEFAULT_END_COUNT = 1500000;
     constexpr DWORD DEFAULT_DELTA_COUNT = 100000;
+    constexpr GUI_ENABLE DEFAULT_GUI_ENABLE = GUI_OFF;
     // System parameters.
     constexpr DWORD WAIT_LIMIT = 600000;     // 10 minutes maximum timeout.
     constexpr DWORD PAGE_WALK_STEP = 4096;

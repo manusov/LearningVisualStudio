@@ -105,7 +105,9 @@ private:
 	static constexpr COLORREF DRAW_FRAME_COLOR = RGB(195, 195, 195);
 	static constexpr COLORREF AXIS_GRAD_COLOR = RGB(1, 1, 1);
 	static constexpr COLORREF UNIT_NAME_COLOR = RGB(3, 3, 150);
-	static constexpr COLORREF DRAW_LINE_COLORS[LINES_SUPPORTED] = { RGB(254, 10, 10), RGB(10, 254, 10), RGB(10, 10, 254) };
+	// static constexpr COLORREF DRAW_LINE_COLORS[LINES_SUPPORTED] = { RGB(254, 10, 10), RGB(10, 254, 10), RGB(10, 10, 254) };
+	static constexpr COLORREF DRAW_LINE_COLORS[LINES_SUPPORTED] = { RGB(254, 10, 10), RGB(10, 10, 254), RGB(10, 254, 10) };
+	//
 	static constexpr COLORREF DOWN_STRINGS_COLOR = RGB(1, 1, 1);
 
 	static const char* const szClassName;
