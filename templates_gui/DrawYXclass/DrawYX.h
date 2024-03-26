@@ -1,6 +1,8 @@
 /*
+
 Class header for draw functions Y=F(X).
 UNDER CONSTRUCTION.
+
 */
 
 #pragma once
@@ -20,8 +22,10 @@ constexpr int MAX_STRING = 80;
 typedef struct {
 	HINSTANCE hInstance;
 	int nCmdShow;
+	const COLORREF* linesColors;
 	const char* winName;
 } WINDOW_PARMS;
+
 typedef struct {
 	int numberOfFunctions;
 	int numberOfValues;
@@ -29,26 +33,25 @@ typedef struct {
 	std::vector<double>** vY;
 	int fGridX;
 	int fGridY;
-	long long fGridZeroX;
-	long long fGridZeroY;
-	long long fGridUnitX;
-	long long fGridUnitY;
 	const char* fUnitNameX;
 	const char* fUnitNameY;
 	const char* fDownString1;
 	const char* fDownString2;
 	const char** functionsNames;
 } FUNCTION_PARMS;
+
 typedef struct {
 	double min;
 	double max;
 	double average;
 	double median;
 } FUNCTION_STATISTICS;
+
 typedef enum {
 	ZONE_BRUSH,
 	MAX_BRUSH
 } USED_BRUSHES;
+
 typedef enum {
 	FRAME_PEN,
 	LINE_1_PEN,
@@ -56,10 +59,12 @@ typedef enum {
 	LINE_3_PEN,
 	MAX_PEN
 } USED_PENS;
+
 typedef enum {
 	GRAD_FONT,
 	AXIS_FONT,
 	STAT_FONT,
+	FUNC_FONT,
 	DOWN_FONT,
 	MAX_FONT
 } USED_FONTS;
@@ -72,11 +77,11 @@ public:
 
 private:
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-	static void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
 	static void PaintHandlerDefault(HDC hdc, RECT rc);
 	static void InitHandlerDrawYX();
 	static void DeInitHandlerDrawYX();
 	static void PaintHandlerDrawYX(HDC hdc, RECT rc);
+	static void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
 
 	static constexpr int LINES_SUPPORTED = 3;
 
@@ -105,7 +110,7 @@ private:
 	static constexpr COLORREF DRAW_FRAME_COLOR = RGB(195, 195, 195);
 	static constexpr COLORREF AXIS_GRAD_COLOR = RGB(1, 1, 1);
 	static constexpr COLORREF UNIT_NAME_COLOR = RGB(3, 3, 150);
-	static constexpr COLORREF DRAW_LINE_COLORS[LINES_SUPPORTED] = { RGB(254, 10, 10), RGB(10, 254, 10), RGB(10, 10, 254) };
+	static constexpr COLORREF DRAW_LINE_COLORS[LINES_SUPPORTED] = { RGB(254, 10, 10), RGB(10, 160, 10), RGB(10, 10, 254) };
 	static constexpr COLORREF DOWN_STRINGS_COLOR = RGB(1, 1, 1);
 
 	static const char* const szClassName;
