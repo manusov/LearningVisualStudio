@@ -18,12 +18,12 @@
     <ClCompile Include="Main.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="KWnd.cpp">
+    <ClCompile Include="AppGuiLib.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="KWnd.h">
+    <ClInclude Include="AppGuiLib.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

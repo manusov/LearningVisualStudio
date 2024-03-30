@@ -1,220 +1,137 @@
 /*
 
-Template for C++ GUI application.
-Draw function Y=F(X).
-Variant with Window Class (KWnd).
+Application library class implementation.
+Class used for GUI support helpers functions.
+UNDER CONSTRUCTION.
 
 */
 
-#include <windows.h>
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include "KWnd.h"
+#include "AppGuiLib.h"
 
-#if _WIN64
-const char* const WIN_NAME = "Draw Y=F(X) v0.05.01 (x64)";
-#elif _WIN32
-const char* const WIN_NAME = "Draw Y=F(X) v0.05.01 (ia32)";
-#endif
-
-// #define _DEFAULT_TEMPLATE_MODE
-
-typedef struct {
-	HINSTANCE hInstance;
-	int nCmdShow;
-	const COLORREF* linesColors;
-	const char* winName;
-} WINDOW_PARMS;
-
-typedef struct {
-	int numberOfFunctions;
-	int numberOfValues;
-	std::vector<double>* vX;
-	std::vector<double>** vY;
-	int fGridX;
-	int fGridY;
-	const char* fUnitNameX;
-	const char* fUnitNameY;
-	const char* fDownString1;
-	const char* fDownString2;
-	const char** functionsNames;
-} FUNCTION_PARMS;
-
-typedef struct {
-	double min;
-	double max;
-	double average;
-	double median;
-} FUNCTION_STATISTICS;
-
-typedef enum {
-	ZONE_BRUSH,
-	MAX_BRUSH
-} USED_BRUSHES;
-
-typedef enum {
-	FRAME_PEN,
-	LINE_1_PEN,
-	LINE_2_PEN,
-	LINE_3_PEN,
-	MAX_PEN
-} USED_PENS;
-
-typedef enum {
-	GRAD_FONT,
-	AXIS_FONT,
-	STAT_FONT,
-	FUNC_FONT,
-	DOWN_FONT,
-	MAX_FONT
-} USED_FONTS;
-
-constexpr int MAX_STRING = 80;
-constexpr int LINES_SUPPORTED = 3;
-constexpr int WINDOW_BASE_X = 100;
-constexpr int WINDOW_BASE_Y = 120;
-constexpr int WINDOW_SIZE_X = 580;
-constexpr int WINDOW_SIZE_Y = 480;
-constexpr int WINDOW_MIN_X = 500;
-constexpr int WINDOW_MIN_Y = 400;
-constexpr int SX1 = 65;
-constexpr int SX2 = 170;
-constexpr int SY1 = 5;
-constexpr int SY2 = 75;
-
-constexpr COLORREF DRAW_ZONE_COLOR = RGB(254, 254, 235);
-constexpr COLORREF DRAW_FRAME_COLOR = RGB(195, 195, 195);
-constexpr COLORREF AXIS_GRAD_COLOR = RGB(1, 1, 1);
-constexpr COLORREF UNIT_NAME_COLOR = RGB(3, 3, 150);
-constexpr COLORREF DRAW_LINE_COLORS[LINES_SUPPORTED] = { RGB(254, 10, 10), RGB(10, 160, 10), RGB(10, 10, 254) };
-constexpr COLORREF DOWN_STRINGS_COLOR = RGB(1, 1, 1);
-
-const char* const szClassName = "ClassNameDrawYX";
-const char* const MIN_STAT = "min     %.3f";
-const char* const MAX_STAT = "max     %.3f";
-const char* const AVERAGE_STAT = "average %.3f";
-const char* const MEDIAN_STAT = "median  %.3f";
-
-WINDOW_PARMS wP;
-FUNCTION_PARMS fP;
-WINDOW_PARMS* pW = &wP;
-FUNCTION_PARMS* pF = &fP;
-
-HWND hWnd;
-FUNCTION_STATISTICS fnStat[LINES_SUPPORTED];
-HBRUSH brushes[MAX_BRUSH];
-HPEN pens[MAX_PEN];
-HFONT fonts[MAX_FONT];
-
-BOOL FunctionDraw(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow,
-    std::vector<double>* vX, std::vector<double>** vY, int nF, int gridX, int gridY, const char** fNames);
-LRESULT CALLBACK WndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-void PaintHandlerDefault(HDC hdc, RECT rc);
-void InitHandlerDrawYX();
-void DeInitHandlerDrawYX();
-void PaintHandlerDrawYX(HDC hdc, RECT rc);
-void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
-
-int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
+BOOL AppGuiLib::FunctionDraw(WINDOW_PARMS* pW, FUNCTION_PARMS* pF)
 {
-    // Argument and functions vectors.
-    std::vector<double> vX;
-    std::vector<double> vy1;
-    std::vector<double> vy2;
-    std::vector<double> vy3;
-    std::vector<double>* vY[3] = { &vy1, &vy2, &vy3 };
-
-    // Constants.
-    int N_F = 101;
-    int GRID_X = 11;
-    int GRID_Y = 11;
-    const char* functionsNames1[3] = { "Y=X", "Y=5X", "Y=X^2+500" };
-
-    // Generating arguments and functions vectors: X, Y1(X), Y2(X), Y3(X). This is measurement results emulation for debug.
-    for (int i = 0; i < N_F; i++)
-    {
-        double a = static_cast<double>(i);
-        vX.push_back(a);
-        vY[0]->push_back(a);
-        vY[1]->push_back(5 * a);
-        vY[2]->push_back(a * a + 500);
-    }
-
-    if (!FunctionDraw(hInstance, hPrevInstance, lpCmdLine, nCmdShow, &vX, vY, N_F, GRID_X, GRID_Y, functionsNames1))
-    {
-        return 1;
-    }
-
-    // Clear argument and functions vectors for second draw.
-    vX.clear();
-    vy1.clear();
-    vy2.clear();
-    vy3.clear();
-
-    // Constants.
-    N_F = 1001;
-    GRID_X = 11;
-    GRID_Y = 11;
-    const char* functionsNames2[3] = { "Y=20+10*sin(X)", "Y=20+10*cos(X)", "Y=combined" };
-
-    // Generating arguments and functions vectors: X, Y1(X), Y2(X), Y3(X). This is measurement results emulation for debug.
-    for (int i = 0; i < N_F; i++)
-    {
-        double a = i / 100.0;
-        vX.push_back(a);
-        vY[0]->push_back(20 + 10 * sin(a));
-        vY[1]->push_back(20 + 10 * cos(a));
-        vY[2]->push_back(30 + 10 * sin(a) + cos(20 * a));
-    }
-
-    Sleep(400);
-    if (!FunctionDraw(hInstance, hPrevInstance, lpCmdLine, nCmdShow, &vX, vY, N_F, GRID_X, GRID_Y, functionsNames2))
-    {
-        return 1;
-    }
-
-    return 0;
+    return FunctionDraw(NULL, NULL, nullptr, 0, nullptr, nullptr, 0, nullptr, pW, pF);
 }
 
-BOOL FunctionDraw(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow,
-    std::vector<double>* vX, std::vector<double>** vY, int nF, int gridX, int gridY, const char** fNames)
+BOOL AppGuiLib::FunctionDraw(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow,
+    std::vector<double>* vX, std::vector<double>** vY, int nF, const char** fNames, 
+    WINDOW_PARMS* pW, FUNCTION_PARMS* pF)
 {
     // Setup chart window parameters.
-    wP.hInstance = hInstance;         // GetModuleHandle(NULL);
-    wP.nCmdShow = nCmdShow;           // nCmdShow;  SW_SHOWNORMAL;
-    wP.linesColors = nullptr;         // Default colors for lines.
-    wP.winName = WIN_NAME;
+    if (pW)
+    {
+        // wP.hInstance = pW->hInstance;
+        // wP.nCmdShow = pW->nCmdShow;
+        // wP.linesColors = pW->linesColors;
+        // wP.winName = pW->winName;
+        size_t length = sizeof(WINDOW_PARMS);
+        WINDOW_PARMS* dest = &wP;
+        memcpy(dest, pW, length);
+    }
+    else
+    {
+        pW = &wP;       // If input pointer = nullptr, use default structure.
+        wP.hInstance = hInstance;                  // GetModuleHandle(NULL);
+        wP.nCmdShow = nCmdShow;                    // nCmdShow;  SW_SHOWNORMAL;
+        wP.linesColors = &DRAW_LINE_COLORS[0];     // Default colors for lines.
+        wP.winName = WIN_NAME;
+    }
 
     // Setup chart function parameters.
-    fP.numberOfFunctions = 3;
-    fP.numberOfValues = nF;
-    fP.fGridX = gridX;
-    fP.fGridY = gridY;
-    fP.fUnitNameX = "X";
-    fP.fUnitNameY = "F(X)";
-    fP.fDownString1 = "This is engineering sample for draw functions Y=F(X).";
-    fP.fDownString2 = "Variant for 3 math functions.";
-    fP.functionsNames = fNames;
-    fP.vX = vX;
-    fP.vY = vY;
-
-    // KWnd mainWnd("Window template", hInstance, nCmdShow, WndProc);
-    // KWnd mainWnd("Window template", hInstance, nCmdShow, WndProc, NULL, WINDOW_BASE_X, WINDOW_BASE_Y, WINDOW_SIZE_X, WINDOW_SIZE_Y);
-    KWnd mainWnd(WIN_NAME, hInstance, nCmdShow, WndProc, NULL, WINDOW_BASE_X, WINDOW_BASE_Y, WINDOW_SIZE_X, WINDOW_SIZE_Y);
-
-    hWnd = mainWnd.GetHWnd();
-    MSG Msg;
-    while (GetMessage(&Msg, NULL, 0, 0))
+    if (pF)
     {
-        TranslateMessage(&Msg);
-        DispatchMessage(&Msg);
+        // fP.numberOfFunctions = pF->numberOfFunctions;
+        // fP.numberOfValues = pF->numberOfValues;
+        // fP.fGridX = pF->fGridX;
+        // fP.fGridY = pF->fGridY;
+        // fP.fUnitNameX = pF->fUnitNameX;
+        // fP.fUnitNameY = pF->fUnitNameY;
+        // fP.fDownString1 = pF->fDownString1;
+        // fP.fDownString2 = pF->fDownString2;
+        // fP.functionsNames = pF->functionsNames;
+        // fP.vX = pF->vX;
+        // fP.vY = pF->vY;
+        size_t length = sizeof(FUNCTION_PARMS);
+        FUNCTION_PARMS* dest = &fP;
+        memcpy(dest, pF, length);
     }
-    return TRUE;
+    else
+    {
+        pF = &fP;       // If input pointer = nullptr, use default structure.
+        fP.numberOfFunctions = 3;
+        fP.numberOfValues = nF;
+        fP.fGridX = GRID_X;
+        fP.fGridY = GRID_Y;
+        fP.fUnitNameX = "X";
+        fP.fUnitNameY = "F(X)";
+        fP.fDownString1 = "This is engineering sample for draw functions Y=F(X).";
+        fP.fDownString2 = "Variant for 3 math functions.";
+        fP.functionsNames = fNames;
+        fP.vX = vX;
+        fP.vY = vY;
+    }
+
+    WNDCLASSEX  WndClsEx = { 0 };
+
+    WndClsEx.cbSize = sizeof(WNDCLASSEX);
+    WndClsEx.style = CS_HREDRAW | CS_VREDRAW;
+    WndClsEx.lpfnWndProc = WndProc;
+    WndClsEx.hInstance = pW->hInstance;
+    WndClsEx.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+    WndClsEx.lpszClassName = szClassName;
+    WndClsEx.hIconSm = LoadIcon(pW->hInstance, IDI_APPLICATION);
+    WndClsEx.hCursor = LoadCursor(NULL, IDC_ARROW);
+
+    static ATOM a;
+    if (!a)
+    {
+        a = RegisterClassEx(&WndClsEx);
+        if (!a)
+        {
+            constexpr int MAX_STRING = 80;
+            char buffer[MAX_STRING];
+            wsprintf(buffer, "Cannot register class: %s.", szClassName);
+            MessageBox(NULL, buffer, "Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+    }
+
+    hWnd = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW,
+        szClassName,
+        pW->winName,
+        WS_OVERLAPPEDWINDOW,
+        WINDOW_BASE_X,
+        WINDOW_BASE_Y,
+        WINDOW_SIZE_X,
+        WINDOW_SIZE_Y,
+        NULL,
+        NULL,
+        pW->hInstance,
+        NULL);
+
+    if (!hWnd)
+    {
+        constexpr int MAX_STRING = 80;
+        char buffer[MAX_STRING];
+        wsprintf(buffer, "Cannot create window: %s.", WIN_NAME);
+        MessageBox(NULL, buffer, "Error", MB_OK | MB_ICONERROR);
+        return FALSE;
+    }
+    else
+    {
+        ShowWindow(hWnd, pW->nCmdShow);
+        UpdateWindow(hWnd);
+        MSG Msg;
+        while (GetMessage(&Msg, NULL, 0, 0))
+        {
+            TranslateMessage(&Msg);
+            DispatchMessage(&Msg);
+        }
+        return TRUE;
+    }
 }
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK AppGuiLib::WndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
     MINMAXINFO* p = nullptr;
     LONG minX = 0, minY = 0;
@@ -272,8 +189,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-void PaintHandlerDefault(HDC hdc, RECT rc)
+void AppGuiLib::PaintHandlerDefault(HDC hdc, RECT rc)
 {
+    WINDOW_PARMS* pW = &wP;
     SetTextColor(hdc, 0);
     SetBkMode(hdc, TRANSPARENT);
     char buffer[MAX_STRING];
@@ -281,15 +199,13 @@ void PaintHandlerDefault(HDC hdc, RECT rc)
     DrawText(hdc, buffer, -1, &rc, DT_CENTER | DT_SINGLELINE | DT_VCENTER);
 }
 
-void InitHandlerDrawYX()
+void AppGuiLib::InitHandlerDrawYX()
 {
-    brushes[ZONE_BRUSH] = CreateSolidBrush(DRAW_ZONE_COLOR);  // Brush for chart drawings zone.
+    WINDOW_PARMS* pW = &wP;
 
-    const COLORREF* linesColors = pW->linesColors;  // Get user colors for line from input structure, or use defaults.
-    if (!linesColors)
-    {
-        linesColors = &DRAW_LINE_COLORS[0];
-    }
+    brushes[ZONE_BRUSH] = CreateSolidBrush(DRAW_ZONE_COLOR);   // Brush for chart drawings zone.
+
+    const COLORREF* linesColors = pW->linesColors;             // Get user colors for line from input structure, or use defaults.
 
     pens[FRAME_PEN] = CreatePen(PS_SOLID, 0, DRAW_FRAME_COLOR);   // Pen for chart frame.
     for (int i = 0; i < LINES_SUPPORTED; i++)                     // Pens for functions charts lines.
@@ -344,7 +260,7 @@ void InitHandlerDrawYX()
     fonts[DOWN_FONT] = CreateFontIndirect(&lf);  // Font for down strings, drawings description.
 }
 
-void DeInitHandlerDrawYX()
+void AppGuiLib::DeInitHandlerDrawYX()
 {
     for (int i = 0; i < MAX_BRUSH; i++)
     {
@@ -360,8 +276,11 @@ void DeInitHandlerDrawYX()
     }
 }
 
-void PaintHandlerDrawYX(HDC hdc, RECT rc)
+void AppGuiLib::PaintHandlerDrawYX(HDC hdc, RECT rc)
 {
+    WINDOW_PARMS* pW = &wP;
+    FUNCTION_PARMS* pF = &fP;
+
     // Set number of Y=F(X) chart lines, input parameter limited by LINES_SUPPORTED constant.
     int linesCount = pF->numberOfFunctions;
     if (linesCount > LINES_SUPPORTED)
@@ -533,7 +452,7 @@ void PaintHandlerDrawYX(HDC hdc, RECT rc)
     SelectObject(hdc, hOldBrush);
 }
 
-void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median)
+void AppGuiLib::calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median)
 {
 	size_t n = data.size();
 	if (n)
@@ -553,3 +472,18 @@ void calculateStatistics(std::vector<double> data, double& min, double& max, dou
 		median = 0.0;
 	}
 }
+
+const char* const AppGuiLib::szClassName = "ClassNameDrawYX";
+const char* const AppGuiLib::MIN_STAT = "min     %.3f";
+const char* const AppGuiLib::MAX_STAT = "max     %.3f";
+const char* const AppGuiLib::AVERAGE_STAT = "average %.3f";
+const char* const AppGuiLib::MEDIAN_STAT = "median  %.3f";
+
+WINDOW_PARMS AppGuiLib::wP;
+FUNCTION_PARMS AppGuiLib::fP;
+
+HWND AppGuiLib::hWnd;
+FUNCTION_STATISTICS AppGuiLib::fnStat[LINES_SUPPORTED];
+HBRUSH AppGuiLib::brushes[MAX_BRUSH];
+HPEN AppGuiLib::pens[MAX_PEN];
+HFONT AppGuiLib::fonts[MAX_FONT];

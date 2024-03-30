@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{862289b2-40cb-4eee-8fcc-7446bede0afd}</ProjectGuid>
+    <ProjectGuid>{598d333e-b563-44ba-b5e4-5aee5c5c0dc0}</ProjectGuid>
     <RootNamespace>DrawYXclass</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -127,13 +127,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="AppGuiLib.cpp" />
-    <ClCompile Include="DrawYX.cpp" />
+    <ClCompile Include="KWnd.cpp" />
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AppGuiLib.h" />
-    <ClInclude Include="DrawYX.h" />
+    <ClInclude Include="KWnd.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

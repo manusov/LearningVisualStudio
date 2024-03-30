@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{24cbd7c0-4c24-449e-97d2-a759939efd5c}</ProjectGuid>
+    <ProjectGuid>{ad7082a2-bb53-4da0-9f17-e4b873e58706}</ProjectGuid>
     <RootNamespace>DrawYX</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
