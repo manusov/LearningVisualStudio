@@ -11,9 +11,9 @@ Simple GUI application template.
 #include <numeric>
 
 #if _WIN64
-const char* const WIN_NAME = "Simple template v0.00.00 (x64)";
+const char* const WIN_NAME = "Simple template v0.00.01 (x64)";
 #elif _WIN32
-const char* const WIN_NAME = "Simple template v0.00.00 (ia32)";
+const char* const WIN_NAME = "Simple template v0.00.01 (ia32)";
 #endif
 
 constexpr int MAX_STRING = 160;

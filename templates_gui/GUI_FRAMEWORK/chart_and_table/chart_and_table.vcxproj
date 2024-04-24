@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{c84e2b91-f78a-4638-a0d2-49af7195e858}</ProjectGuid>
-    <RootNamespace>simpletemplate</RootNamespace>
+    <ProjectGuid>{b044eab6-0e58-4dbb-81c3-6b85a5530a28}</ProjectGuid>
+    <RootNamespace>chartandtable</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

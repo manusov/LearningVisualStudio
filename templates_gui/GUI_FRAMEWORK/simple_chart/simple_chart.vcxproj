@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{af96c1b0-49d2-48c0-812b-e89d38a85800}</ProjectGuid>
+    <ProjectGuid>{069ab988-35d1-4091-9249-70469387c757}</ProjectGuid>
     <RootNamespace>simplechart</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>

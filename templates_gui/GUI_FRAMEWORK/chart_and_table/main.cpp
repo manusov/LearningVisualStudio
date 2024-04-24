@@ -1,6 +1,6 @@
 /*
 
-Simple GUI application: chart Y=F(X) function(s).
+Simple GUI application: chart Y=F(X) function(s) and show statistics table.
 First step (this source file) is modeling and debug as single source file main.cpp,
 second step is integration to classes or libraries.
 
@@ -13,24 +13,24 @@ second step is integration to classes or libraries.
 #include <numeric>
 
 #if _WIN64
-const char* const WIN_NAME = "Simple chart v0.00.00 (x64)";
+const char* const WIN_NAME = "Chart and table v0.00.01 (x64)";
 #elif _WIN32
-const char* const WIN_NAME = "Simple chart v0.00.00 (ia32)";
+const char* const WIN_NAME = "Chart and table v0.00.01 (ia32)";
 #endif
 
 constexpr int MAX_STRING = 160;
 
 constexpr int WINDOW_BASE_X = 500;
 constexpr int WINDOW_BASE_Y = 300;
-constexpr int WINDOW_SIZE_X = 580;
-constexpr int WINDOW_SIZE_Y = 482;
-constexpr int WINDOW_MIN_X  = 300;
-constexpr int WINDOW_MIN_Y  = 200;
+constexpr int WINDOW_SIZE_X = 640;
+constexpr int WINDOW_SIZE_Y = 520;
+constexpr int WINDOW_MIN_X = 300;
+constexpr int WINDOW_MIN_Y = 200 + 80;
 
-constexpr int GRID_LEFT     = 60;
-constexpr int GRID_RIGHT    = 7;
-constexpr int GRID_TOP      = 7;
-constexpr int GRID_DOWN     = 49;
+constexpr int GRID_LEFT = 60;
+constexpr int GRID_RIGHT = 7;
+constexpr int GRID_TOP = 7;
+constexpr int GRID_DOWN = 49 + 80;
 
 constexpr COLORREF GRID_COUNT_COLOR = RGB(70, 70, 70);
 constexpr COLORREF UNITS_NAMES_COLOR = RGB(90, 30, 90);
@@ -46,7 +46,7 @@ typedef enum {
 constexpr COLORREF BRUSH_COLORS[] = { RGB(254, 254, 235) };
 HBRUSH hBrushes[MAX_BRUSH];
 
-typedef enum 
+typedef enum
 {
     GRID_PEN,
     LINE_1_PEN,
@@ -68,11 +68,12 @@ constexpr PEN_ENTRY PEN_DATA[] =
 };
 HPEN hPens[MAX_PEN];
 
-typedef enum 
+typedef enum
 {
     AXIS_FONT,
     GRID_FONT,
     FUNCTIONS_FONT,
+    STATISTICS_FONT,
     MAX_FONT
 } USED_FONTS;
 typedef struct
@@ -87,9 +88,19 @@ constexpr FONT_ENTRY FONT_DATA[] =
 {
     { "Verdana", 15, FW_BOLD, TRUE,  FIXED_PITCH  },
     { "Verdana", 14, FW_THIN, FALSE, FIXED_PITCH  },
-    { "Verdana", 15, FW_BOLD, FALSE, FIXED_PITCH  }
+    { "Verdana", 15, FW_BOLD, FALSE, FIXED_PITCH  },
+    { "Verdana", 15, FW_THIN, FALSE, FIXED_PITCH  }
 };
 HFONT hFonts[MAX_FONT];
+
+typedef struct {
+    double min;
+    double max;
+    double average;
+    double median;
+} FUNCTION_STATISTICS;
+
+const char* STATISTICS_NAMES[] = { "minimum", "maximum", "average", "median" };
 
 // Function Y=F(X) parameters. TODO. Need transfer to function as structure.
 const char* F_AXIS_NAME_X = "X";
@@ -108,13 +119,16 @@ std::vector<double> vX;
 std::vector<double> vy1;
 std::vector<double> vy2;
 std::vector<double> vy3;
-std::vector<double>* vY[3] = { &vy1, &vy2, &vy3 };
+std::vector<double>* vY[] = { &vy1, &vy2, &vy3 };
+// Additions for statistics table.
+FUNCTION_STATISTICS statistics[F_CURVES_COUNT];
 // End of function(s) parameters block.
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 BOOL createContext();
 BOOL deleteContext();
 void paint(HDC& hdc, RECT& rc);
+void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median);
 
 int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -131,7 +145,17 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         vY[2]->push_back(sin(bX) / 2.0 + 0.5);
         bX += qX;
     }
-    
+
+    // Calculate statistics for functions. This is measurement results emulation for debug.
+    std::vector<double>** pValues = vY;
+    FUNCTION_STATISTICS* pStat = statistics;
+    for (int i = 0; i < F_CURVES_COUNT; i++)
+    {
+        calculateStatistics((*(*pValues)), pStat->min, pStat->max, pStat->average, pStat->median);
+        pValues++;
+        pStat++;
+    }
+
     // Initializing and show GUI window.
     if (!createContext())
     {
@@ -211,10 +235,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 
     switch (Msg)
     {
-//
-//  case WM_CREATE:
-//      break;
-//
+        //
+        //  case WM_CREATE:
+        //      break;
+        //
     case WM_DESTROY:
         PostQuitMessage(WM_QUIT);
         break;
@@ -362,15 +386,16 @@ void paint(HDC& hdc, RECT& rc)
     const int winX = rc.right - rc.left;
     const int winY = rc.bottom - rc.top;
 
-    // Set display coordinates translation.
+    // Set display coordinates translation and transparency option.
     SetMapMode(hdc, MM_ISOTROPIC);
     SetWindowExtEx(hdc, winX, winY, NULL);
     SetViewportExtEx(hdc, winX, -winY, NULL);
     SetViewportOrgEx(hdc, 0, winY, NULL);
+    SetBkMode(hdc, TRANSPARENT);
 
     // Change display device context parameters, save original values for restore.
     HPEN hOldPen = static_cast<HPEN>(SelectObject(hdc, hPens[GRID_PEN]));
-    
+
     // Calculations for draw horizontal grid lines, for vertical axis counts (Y).
     int hx1 = GRID_LEFT;
     int hx2 = winX - GRID_RIGHT;
@@ -379,7 +404,7 @@ void paint(HDC& hdc, RECT& rc)
     int modX = (hx2 - hx1) % F_GRID_COUNT_X;
     hx2 -= modX;
     int dX = (hx2 - hx1) / F_GRID_COUNT_X;
-   
+
     // Calculations for draw vertical grid lines, for horizontal axis counts (X).
     int vx1 = hx1;
     int vx2 = vx1;
@@ -406,7 +431,7 @@ void paint(HDC& hdc, RECT& rc)
     // Transit buffer for text strings write and other variables.
     char buffer[MAX_STRING];
     SIZE labelSize;
-    
+
     // Draw horizontal grid values, X counts.
     HFONT hOldFont = static_cast<HFONT>(SelectObject(hdc, hFonts[GRID_FONT]));
     SetTextColor(hdc, GRID_COUNT_COLOR);
@@ -451,11 +476,10 @@ void paint(HDC& hdc, RECT& rc)
     // Write X axis name.
     SelectObject(hdc, hFonts[AXIS_FONT]);
     SetTextColor(hdc, UNITS_NAMES_COLOR);
-    SetBkMode(hdc, TRANSPARENT);
     int length = static_cast<int>(strlen(F_AXIS_NAME_X));
     GetTextExtentPoint32(hdc, F_AXIS_NAME_X, length, &labelSize);
     int labelX = winX - labelSize.cx - 5;
-    int labelY = labelSize.cy + 5;
+    int labelY = labelSize.cy + 5 + 100;
     TextOut(hdc, labelX, labelY, F_AXIS_NAME_X, length);
 
     // Write Y axis name.
@@ -465,18 +489,51 @@ void paint(HDC& hdc, RECT& rc)
     TextOut(hdc, labelX, labelY, F_AXIS_NAME_Y, length);
 
     // Write curves names, down string.
-    labelX = hx1;
+    labelX = hx1 + 100;
     labelY = 0;
     for (int i = 0; i < F_CURVES_COUNT; i++)
     {
         SetTextColor(hdc, PEN_DATA[i + 1].color);
         int length = static_cast<int>(strlen(F_CURVES_NAMES[i]));
         GetTextExtentPoint32(hdc, F_CURVES_NAMES[i], length, &labelSize);
-        labelY = labelSize.cy + 4;
+        labelY = labelSize.cy + 4 + 80;
         TextOut(hdc, labelX, labelY, F_CURVES_NAMES[i], length);
-        labelX += labelSize.cx + 20;
+        labelX += 110; // labelSize.cx + 40;
     }
 
+    // Write statistics table, left part with lines names.
+    SelectObject(hdc, hFonts[STATISTICS_FONT]);
+    SetTextColor(hdc, GRID_COUNT_COLOR);
+    labelX = hx1;
+    labelY = 79;
+    for (int i = 0; i < 4; i++)
+    {
+        int length = static_cast<int>(strlen(STATISTICS_NAMES[i]));
+        TextOut(hdc, labelX, labelY, STATISTICS_NAMES[i], length);
+        labelY -= 16;
+    }
+
+    // Write statistics table, values.
+    labelX = hx1 + 100;
+    FUNCTION_STATISTICS* pStat = statistics;
+
+    for (int i = 0; i < F_CURVES_COUNT; i++)
+    {
+        labelY = 79;
+        SetTextColor(hdc, PEN_DATA[i + 1].color);
+        double* p = &(pStat->min);
+        for (int j = 0; j < 4; j++)
+        {
+            double a = *p++;
+            snprintf(buffer, MAX_STRING, "%.3f", a);
+            int length = static_cast<int>(strlen(buffer));
+            TextOut(hdc, labelX, labelY, buffer, length);
+            labelY -= 16;
+        }
+        labelX += 110;
+        pStat++;
+    }
+    
     // Draw curves Y=F(X).
     double pixelsPerX = (hx2 - hx1) / (targetX);
     double pixelsPerY = (vy2 - vy1) / (targetY);
@@ -490,7 +547,29 @@ void paint(HDC& hdc, RECT& rc)
             LineTo(hdc, static_cast<int>(vX[j] * pixelsPerX) + hx1, static_cast<int>((*(vY[i]))[j] * pixelsPerY) + vy1);
         }
     }
+
     // Restore display device context parameters: default font, default pen, default brush.
     SelectObject(hdc, hOldFont);
     SelectObject(hdc, hOldPen);
+}
+
+void calculateStatistics(std::vector<double> data, double& min, double& max, double& average, double& median)
+{
+    size_t n = data.size();
+    if (n)
+    {
+        std::sort(data.begin(), data.end());
+        double sum = std::accumulate(data.begin(), data.end(), double(0));  // BUG FIXED: double(0).
+        min = data[0];
+        max = data[n - 1];
+        average = sum / n;
+        median = (n % 2) ? (data[n / 2]) : ((data[n / 2 - 1] + data[n / 2]) / 2.0);
+    }
+    else
+    {
+        min = 0.0;
+        max = 0.0;
+        average = 0.0;
+        median = 0.0;
+    }
 }
